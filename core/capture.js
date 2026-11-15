@@ -101,3 +101,10 @@ export async function captureElement(cdp, options = {}) {
   const picked = await pickNode(cdp, options);
   return captureNode(cdp, picked, options);
 }
+
+/** Capture kinds hosts can request by name (used by the adapters). */
+export const captureByKind = Object.freeze({
+  viewport: captureViewport,
+  full: captureFull,
+  element: captureElement,
+});

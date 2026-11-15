@@ -1,7 +1,7 @@
 // Chrome adapter: fills core's `cdp` contract with chrome.debugger.
 // `chromeApi` is injectable so the adapter can be tested without a browser.
 import { CaptureError, ErrorCode, fromCdpError } from '../core/errors.js';
-import { captureViewport, captureFull, captureElement } from '../core/index.js';
+import { captureByKind } from '../core/index.js';
 
 const PROTOCOL_VERSION = '1.3';
 
@@ -67,8 +67,6 @@ export function createChromeCdp(tabId, chromeApi = globalThis.chrome) {
   };
 }
 
-const CAPTURES = { viewport: captureViewport, full: captureFull, element: captureElement };
-
 /**
  * Attach, run one capture, always detach.
  * @param {number} tabId
@@ -76,7 +74,7 @@ const CAPTURES = { viewport: captureViewport, full: captureFull, element: captur
  * @param {object} [options] core options (depth, format, settleMs, reportProgress, ...)
  */
 export async function runCapture(tabId, kind, options = {}, chromeApi = globalThis.chrome) {
-  const capture = CAPTURES[kind];
+  const capture = captureByKind[kind];
   if (!capture) throw new CaptureError(ErrorCode.INVALID_OPTION, `알 수 없는 캡처 종류: ${kind}`);
   const cdp = createChromeCdp(tabId, chromeApi);
   await cdp.attach();

@@ -172,3 +172,6 @@ __pycache__/
 backend/.venv/
 .pytest_cache/
 build/
+
+# Electron sample output
+examples/electron-sample/out/

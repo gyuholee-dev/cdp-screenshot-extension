@@ -1,0 +1,13 @@
+{
+  "name": "cdp-screenshot-electron-sample",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sample Electron app that uses adapter-electron / core via dynamic import()",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "44.10.2"
+  }
+}
