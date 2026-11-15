@@ -114,3 +114,28 @@ test('runCapture: detaches even when the capture fails', async () => {
   assert.equal(chrome.calls.at(-1)[0], 'detach');
   assert.equal(chrome.onEvent.size(), 0);
 });
+
+test('runCapture: afterCapture runs once the capture is over, before detaching, with the outcome', async () => {
+  const chrome = makeChrome({ sendHandler: (m) => (m === 'Page.captureScreenshot' ? { data: makePng(10, 20) } : {}) });
+  const seen = [];
+  const r = await runCapture(1, 'viewport', {}, chrome, {
+    afterCapture: async ({ cdp, ok, result }) => { seen.push([ok, result.width, typeof cdp.send]); chrome.calls.push(['hook']); },
+  });
+  assert.equal(r.width, 10);
+  assert.deepEqual(seen, [[true, 10, 'function']]);
+  const names = chrome.calls.map((c) => c[0]);
+  assert.ok(names.indexOf('hook') < names.lastIndexOf('detach'));
+});
+
+test('runCapture: afterCapture also runs on failure, and a throwing hook never breaks the capture or the detach', async () => {
+  const chrome = makeChrome({ sendHandler: () => { throw new Error('boom'); } });
+  let outcome;
+  await assert.rejects(runCapture(1, 'viewport', {}, chrome, { afterCapture: ({ ok, error }) => { outcome = [ok, error.message]; throw new Error('hook failed'); } }), /boom/);
+  assert.deepEqual(outcome, [false, 'boom']);
+  assert.equal(chrome.calls.at(-1)[0], 'detach');
+
+  const ok = makeChrome({ sendHandler: (m) => (m === 'Page.captureScreenshot' ? { data: makePng(2, 2) } : {}) });
+  const r = await runCapture(1, 'viewport', {}, ok, { afterCapture: () => { throw new Error('hook failed'); } });
+  assert.equal(r.width, 2);
+  assert.equal(ok.calls.at(-1)[0], 'detach');
+});

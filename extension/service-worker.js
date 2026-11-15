@@ -1,4 +1,4 @@
-import { runCapture } from '../adapter-chrome/index.js';
+import { createChromeCdp, runCapture } from '../adapter-chrome/index.js';
 import { ErrorCode } from '../core/index.js';
 import { loadSettings } from './settings.js';
 import * as history from './history.js';
@@ -6,11 +6,12 @@ import { saveBlob } from './save.js';
 import { showToast } from './toast.js';
 import { focusTab } from './focus.js';
 import { captureFlow } from './capture-flow.js';
+import { renderEffect } from './feedback.js';
 
 const MENU = [
-  { id: 'viewport', title: '스크린샷' },
-  { id: 'full', title: '전체 스크린샷' },
-  { id: 'element', title: '엘리먼트 스크린샷' },
+  { id: 'viewport', title: '화면 캡처' },
+  { id: 'full', title: '전체 캡처' },
+  { id: 'element', title: '요소 캡처' },
 ];
 const busy = new Set(); // one capture per tab at a time
 const openPanels = new Map(); // windowId -> number of connected panel instances
@@ -52,8 +53,21 @@ function togglePanel(windowId) {
 chrome.action.onClicked.addListener((tab) => togglePanel(tab.windowId));
 
 // --- capture -----------------------------------------------------------------------------------
+/** The flash and edge on the page, through the connection the capture used (no extra permission). */
+async function playEffect(cdp, variant, effects) {
+  await cdp.send('Runtime.evaluate', {
+    expression: `(${renderEffect.toString()})(${JSON.stringify(variant)}, ${JSON.stringify(effects)})`,
+    returnByValue: true,
+  });
+}
+
+async function showEffect({ cdp, ok, error }) {
+  if (!ok && error?.code === ErrorCode.CANCELED) return; // an Esc is not an event worth flashing
+  await playEffect(cdp, ok ? 'ok' : 'error', (await loadSettings()).effects);
+}
+
 const deps = {
-  runCapture,
+  runCapture: (tabId, kind, opts) => runCapture(tabId, kind, opts, chrome, { afterCapture: showEffect }),
   loadSettings,
   focusTab,
   history,
@@ -92,14 +106,36 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   capture(command, t, 'menu').catch(logFailure);
 });
 
+// The settings view's test buttons: play one effect on the page now (it attaches for a moment).
+async function testEffect(windowId, which, css) {
+  const [tab] = await chrome.tabs.query({ active: true, windowId });
+  if (!tab?.id) throw new Error('효과를 보여 줄 탭을 찾지 못했습니다.');
+  const cdp = createChromeCdp(tab.id, chrome);
+  await cdp.attach();
+  try {
+    const on = { enabled: true, css };
+    const off = { enabled: false, css: '' };
+    await playEffect(cdp, 'ok', which === 'flash' ? { flash: on, edge: off } : { flash: off, edge: on });
+  } finally {
+    await cdp.detach();
+  }
+}
+
 // The panel's own buttons.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.target === 'worker' && msg.type === 'effect-test') {
+    testEffect(msg.windowId, msg.which, msg.css).then(
+      () => sendResponse({ ok: true }),
+      (e) => sendResponse({ ok: false, message: e?.message ?? String(e) }),
+    );
+    return true;
+  }
   if (msg?.target !== 'worker' || msg.type !== 'capture') return false;
   (async () => {
     const [tab] = await chrome.tabs.query({ active: true, windowId: msg.windowId });
     return capture(msg.kind, tab, 'panel');
   })().then(
-    ({ id }) => sendResponse({ ok: true, id }),
+    ({ id, ms }) => sendResponse({ ok: true, id, ms }),
     (e) => {
       logFailure(e);
       sendResponse({ ok: false, code: e?.code ?? 'UNKNOWN', message: e?.message ?? String(e) });

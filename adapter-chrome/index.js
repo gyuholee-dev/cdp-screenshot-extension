@@ -69,18 +69,28 @@ export function createChromeCdp(tabId, chromeApi = globalThis.chrome) {
 
 /**
  * Attach, run one capture, always detach.
+ * `hooks.afterCapture({cdp, ok, result?, error?})` runs after the capture (best effort), before detaching.
  * @param {number} tabId
  * @param {'viewport'|'full'|'element'} kind
  * @param {object} [options] core options (depth, format, settleMs, reportProgress, ...)
  */
-export async function runCapture(tabId, kind, options = {}, chromeApi = globalThis.chrome) {
+export async function runCapture(tabId, kind, options = {}, chromeApi = globalThis.chrome, hooks = {}) {
   const capture = captureByKind[kind];
   if (!capture) throw new CaptureError(ErrorCode.INVALID_OPTION, `알 수 없는 캡처 종류: ${kind}`);
   const cdp = createChromeCdp(tabId, chromeApi);
   await cdp.attach();
+  let outcome = { ok: false, error: undefined };
   try {
-    return await capture(cdp, options);
+    const result = await capture(cdp, options);
+    outcome = { ok: true, result };
+    return result;
+  } catch (e) {
+    outcome = { ok: false, error: e };
+    throw e;
   } finally {
+    // Host hook, run once the capture is over and the page is restored, while still attached
+    // (e.g. on-screen feedback through this same connection). Best effort: never breaks the capture.
+    try { await hooks.afterCapture?.({ cdp, ...outcome }); } catch { /* ignore */ }
     await cdp.detach();
   }
 }

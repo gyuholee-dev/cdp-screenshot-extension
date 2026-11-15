@@ -11,12 +11,35 @@ export const AFTER_ACTIONS = ['save', 'history'];
 // values stored by earlier builds
 const LEGACY_AFTER_ACTIONS = { copy: 'history', both: 'save' };
 
+/**
+ * The capture effect (see feedback.js): a flash of the whole page and a glowing edge, each can be
+ * switched off and restyled with plain CSS declarations (applied to a full-screen layer).
+ */
+export const EFFECT_DEFAULTS = Object.freeze({
+  flash: Object.freeze({ enabled: true, css: 'background: #ffffff;' }),
+  edge: Object.freeze({
+    enabled: true,
+    css: 'box-shadow: inset 0 0 0 5px rgba(41, 121, 255, 0.95), inset 0 0 36px 8px rgba(41, 121, 255, 0.55);',
+  }),
+});
+const MAX_CSS_LENGTH = 2000;
+
+function normalizeEffect(raw, def) {
+  const r = raw && typeof raw === 'object' ? raw : {};
+  const css = typeof r.css === 'string' ? r.css.trim() : '';
+  return {
+    enabled: typeof r.enabled === 'boolean' ? r.enabled : def.enabled,
+    css: css && css.length <= MAX_CSS_LENGTH ? css : def.css,
+  };
+}
+
 export const SETTING_DEFAULTS = Object.freeze({
   depth: DEFAULTS.depth,
   format: DEFAULTS.format,
   settleMs: DEFAULTS.settleMs,
   afterAction: 'history',
   retentionDays: 30, // 0 = keep until cleared by hand
+  effects: EFFECT_DEFAULTS,
 });
 
 /** Coerce stored/untrusted values; anything invalid falls back to the default. */
@@ -32,6 +55,10 @@ export function normalizeSettings(raw = {}) {
     settleMs: Number.isFinite(settleMs) && settleMs >= 0 ? Math.round(settleMs) : SETTING_DEFAULTS.settleMs,
     afterAction: AFTER_ACTIONS.includes(afterAction) ? afterAction : SETTING_DEFAULTS.afterAction,
     retentionDays: Number.isInteger(retentionDays) && retentionDays >= 0 ? retentionDays : SETTING_DEFAULTS.retentionDays,
+    effects: {
+      flash: normalizeEffect(r.effects?.flash, EFFECT_DEFAULTS.flash),
+      edge: normalizeEffect(r.effects?.edge, EFFECT_DEFAULTS.edge),
+    },
   };
 }
 

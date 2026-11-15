@@ -34,7 +34,7 @@ test('normalizeSettings: defaults and coercion', () => {
   assert.deepEqual(normalizeSettings(), SETTING_DEFAULTS);
   assert.deepEqual(
     normalizeSettings({ depth: '2', format: 'jpeg', settleMs: '500', afterAction: 'save', retentionDays: '7' }),
-    { depth: 2, format: 'jpeg', settleMs: 500, afterAction: 'save', retentionDays: 7 },
+    { depth: 2, format: 'jpeg', settleMs: 500, afterAction: 'save', retentionDays: 7, effects: SETTING_DEFAULTS.effects },
   );
   assert.deepEqual(normalizeSettings({ depth: -1, format: 'gif', settleMs: 'x', afterAction: 'cloud', retentionDays: -3 }), SETTING_DEFAULTS);
   assert.equal(normalizeSettings({ depth: 1.5 }).depth, SETTING_DEFAULTS.depth);
@@ -42,6 +42,16 @@ test('normalizeSettings: defaults and coercion', () => {
   assert.equal(normalizeSettings(null).format, 'png');
   assert.equal(SETTING_DEFAULTS.afterAction, 'history');
   assert.equal(SETTING_DEFAULTS.depth, 5);
+  assert.equal(SETTING_DEFAULTS.settleMs, 250);
+});
+
+test('normalizeSettings: effects can be switched off and restyled; bad values fall back', () => {
+  assert.equal(SETTING_DEFAULTS.effects.flash.enabled, true);
+  assert.match(SETTING_DEFAULTS.effects.edge.css, /41, 121, 255/); // blue
+  const n = normalizeSettings({ effects: { flash: { enabled: false, css: ' background: #fff; ' }, edge: { enabled: 'yes', css: '' } } });
+  assert.deepEqual(n.effects.flash, { enabled: false, css: 'background: #fff;' });
+  assert.deepEqual(n.effects.edge, SETTING_DEFAULTS.effects.edge); // not a boolean / empty -> default
+  assert.equal(normalizeSettings({ effects: { edge: { css: 'x'.repeat(5000) } } }).effects.edge.css, SETTING_DEFAULTS.effects.edge.css);
 });
 
 test('normalizeSettings: values of earlier builds are converted (copying is no longer automatic)', () => {
@@ -183,7 +193,7 @@ test('captureFlow (menu): the page gets a toast; element shots bring the page wi
   assert.deepEqual(d.calls[0], ['focus', 9]);
   const toast = d.calls.find((c) => c[0] === 'toast');
   assert.equal(toast[1], 9);
-  assert.match(toast[2], /요소 30×20px · 기록에 저장됨/);
+  assert.match(toast[2], /요소 캡처 완료 · 30×20px · \d+\.\d초 · 기록에 저장됨/);
   assert.match(toast[2], /복사 버튼/);
   assert.equal(toast[3], false);
 });
@@ -191,7 +201,7 @@ test('captureFlow (menu): the page gets a toast; element shots bring the page wi
 test('captureFlow: failures toast on the page (menu) but not a cancel; errors still propagate', async () => {
   const boom = flowDeps({ deps: { runCapture: async () => { throw new Error('attach failed'); } } });
   await assert.rejects(captureFlow({ kind: 'viewport', tab: { id: 1 }, origin: 'menu' }, boom), /attach failed/);
-  assert.deepEqual(boom.calls.find((c) => c[0] === 'toast').slice(2), ['스크린샷 실패 · attach failed', true]);
+  assert.deepEqual(boom.calls.find((c) => c[0] === 'toast').slice(2), ['캡처 실패 · attach failed', true]);
 
   const canceled = flowDeps({ deps: { runCapture: async () => { throw new CaptureError(ErrorCode.CANCELED, 'canceled'); } } });
   await assert.rejects(captureFlow({ kind: 'element', tab: { id: 1 }, origin: 'menu' }, canceled), /canceled/);
@@ -200,6 +210,21 @@ test('captureFlow: failures toast on the page (menu) but not a cancel; errors st
   const fromPanel = flowDeps({ deps: { runCapture: async () => { throw new Error('x'); } } });
   await assert.rejects(captureFlow({ kind: 'viewport', tab: { id: 1 }, origin: 'panel' }, fromPanel), /x/);
   assert.ok(!fromPanel.calls.some((c) => c[0] === 'toast')); // the panel shows the error itself
+});
+
+test('captureFlow reports how long the capture took', async () => {
+  let clock = 1000;
+  const d = flowDeps({ deps: { now: () => clock, runCapture: async () => { clock += 1234; return { bytes: new Uint8Array([1]), mime: 'image/png', width: 1, height: 1 }; } } });
+  const r = await captureFlow({ kind: 'full', tab: { id: 1 }, origin: 'panel' }, d);
+  assert.equal(r.ms, 1234);
+});
+
+test('feedback: the effect function is self-contained and only uses CSP-safe APIs', async () => {
+  const { renderEffect } = await import('../extension/feedback.js');
+  assert.doesNotThrow(() => new Function(`return (${renderEffect.toString()})`));
+  assert.ok(!/createElement\(['"]style['"]\)/.test(renderEffect.toString()));
+  // the manifest and menus use the agreed terms
+  assert.deepEqual(manifest.commands.viewport.description, '화면 캡처'); // a <style> element can be blocked by the page's CSP
 });
 
 test('toast: render function is self-contained; showToast is best effort', async () => {

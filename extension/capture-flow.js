@@ -5,16 +5,18 @@
 import { ErrorCode } from '../core/index.js';
 import { buildFilename } from './save.js';
 
-const KIND_LABEL = { viewport: '화면', full: '전체', element: '요소' };
+const KIND_LABEL = { viewport: '화면 캡처', full: '전체 캡처', element: '요소 캡처' };
 
 /**
  * @param {{kind: 'viewport'|'full'|'element', tab: {id: number, url?: string, title?: string}, origin: 'panel'|'menu'}} req
  * @param {object} deps runCapture, loadSettings, focusTab, history{addEntry,updateEntry,pruneExpired},
  *   getDirHandle, saveBlob, notifyPanel, showToast
- * @returns {Promise<{id: string, note: string}>}
+ * @returns {Promise<{id: string, note: string, ms: number}>} ms = time from the request to the saved entry
  */
 export async function captureFlow({ kind, tab, origin }, deps) {
   const { runCapture, loadSettings, focusTab, history, getDirHandle, saveBlob, notifyPanel, showToast } = deps;
+  const now = deps.now ?? (() => Date.now());
+  const started = now();
   try {
     if (kind === 'element') await focusTab(tab); // picking needs the page window in front
     const settings = await loadSettings();
@@ -48,18 +50,19 @@ export async function captureFlow({ kind, tab, origin }, deps) {
     }
     await history.pruneExpired(settings.retentionDays);
     notifyPanel({ type: 'history-changed', id: entry.id });
+    const ms = now() - started;
 
     if (origin === 'menu') {
       await showToast(
         tab.id,
-        `스크린샷 완료 · ${KIND_LABEL[kind]} ${result.width}×${result.height}px · 기록에 저장됨${note ? `\n${note}` : ''}\n복사는 패널 기록의 복사 버튼으로`,
+        `${KIND_LABEL[kind]} 완료 · ${result.width}×${result.height}px · ${(ms / 1000).toFixed(1)}초 · 기록에 저장됨${note ? `\n${note}` : ''}\n복사는 패널 기록의 복사 버튼으로`,
         false,
       );
     }
-    return { id: entry.id, note };
+    return { id: entry.id, note, ms };
   } catch (e) {
     if (origin === 'menu' && e?.code !== ErrorCode.CANCELED) {
-      await showToast(tab.id, `스크린샷 실패 · ${e?.message ?? e}`, true);
+      await showToast(tab.id, `캡처 실패 · ${e?.message ?? e}`, true);
     }
     throw e;
   }

@@ -1,4 +1,6 @@
-// On-screen feedback. Shown only after the capture has finished (debugger detached, page
+// On-screen details (size, where it was saved), at the top centre: a corner toast was too easy to
+// miss, so the flash from feedback.js is the main signal and this one only carries the text.
+// Shown only after the capture has finished (debugger detached, page
 // restored), so it can never appear in the screenshot itself.
 
 /** Runs inside the page (via chrome.scripting): must be self-contained. */
@@ -7,7 +9,7 @@ export function renderToast(text, isError) {
   document.getElementById(ID)?.remove();
   const host = document.createElement('div');
   host.id = ID;
-  host.style.cssText = 'all:initial;position:fixed;right:16px;bottom:16px;z-index:2147483647;pointer-events:none;';
+  host.style.cssText = 'all:initial;position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:2147483647;pointer-events:none;';
   const root = host.attachShadow({ mode: 'closed' });
   const box = document.createElement('div');
   box.textContent = text;

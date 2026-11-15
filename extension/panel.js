@@ -2,19 +2,20 @@
 // shortcuts alike) and the settings. Copying to the clipboard happens only here, on the Copy button
 // of an entry: the click gives the panel focus and a user gesture, so it behaves the same whatever
 // page the shot is from and however the capture was started.
-import { AFTER_ACTIONS, loadSettings, saveSettings } from './settings.js';
+import { AFTER_ACTIONS, EFFECT_DEFAULTS, SETTING_DEFAULTS, loadSettings, saveSettings } from './settings.js';
 import { clearEntries, deleteEntry, kvDelete, kvGet, kvSet, listEntries, pruneExpired, updateEntry } from './history.js';
 import { buildFilename, saveBlob } from './save.js';
 import { copyImage } from './clipboard.js';
 
 const $ = (id) => document.getElementById(id);
-const KINDS = { viewport: '화면', full: '전체', element: '요소' };
+const KINDS = { viewport: '화면 캡처', full: '전체 캡처', element: '요소 캡처' };
 const STAGES = { pick: '요소를 클릭하세요 (Esc로 취소)', expand: '스크롤 영역을 펼치는 중…', capture: '촬영 중…' };
 
 let settings;
 let windowId;
 let running = false;
 let urls = [];
+const fresh = new Set(); // entries added since the last render: highlighted once
 const flash = new Map(); // entry id -> {text, cls}: result of a click in this panel (copy, save), shown over the stored note
 
 // --- connection to the service worker (it needs to know this panel is open) --------------------
@@ -49,7 +50,7 @@ function pageLabel(e) {
 function renderItem(e, index) {
   const li = document.createElement('li');
   li.dataset.id = e.id;
-  if (index === 0) li.className = 'latest';
+  li.className = [index === 0 ? 'latest' : '', fresh.has(e.id) ? 'new' : ''].filter(Boolean).join(' ');
 
   const img = document.createElement('img');
   const url = URL.createObjectURL(e.blob);
@@ -96,6 +97,8 @@ async function refresh() {
   urls = [];
   $('list').replaceChildren(...entries.map((e, i) => renderItem(e, i)));
   $('empty').hidden = entries.length > 0;
+  if (fresh.size) window.scrollTo({ top: 0 }); // the new entry is at the top
+  fresh.clear();
 }
 
 // --- actions on one entry ---------------------------------------------------------------------
@@ -146,9 +149,11 @@ async function startCapture(kind) {
       else setStatus(`촬영 실패: ${res?.message ?? '응답 없음'}`, 'err');
       return;
     }
+    fresh.add(res.id);
     await refresh();
     const entry = (await listEntries()).find((e) => e.id === res.id);
-    setStatus(`${KINDS[kind]} · ${entry ? `${entry.width}×${entry.height}px ` : ''}촬영됨 · 아래 기록의 복사 버튼으로 복사하세요`, 'ok');
+    const took = typeof res.ms === 'number' ? ` · ${(res.ms / 1000).toFixed(1)}초` : '';
+    setStatus(`${KINDS[kind]} · ${entry ? `${entry.width}×${entry.height}px ` : ''}촬영됨${took} · 아래 기록의 복사 버튼으로 복사하세요`, 'ok');
   } catch (e) {
     setStatus(`촬영 실패: ${e?.message ?? e}`, 'err');
   } finally {
@@ -159,15 +164,17 @@ async function startCapture(kind) {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.target !== 'panel') return;
   if (msg.type === 'progress' && running && STAGES[msg.stage]) setStatus(STAGES[msg.stage]);
-  if (msg.type === 'history-changed') refresh(); // captured elsewhere (context menu, shortcut)
+  if (msg.type === 'history-changed') { // captured elsewhere (context menu, shortcut)
+    if (msg.id) fresh.add(msg.id);
+    refresh();
+  }
 });
 
 // --- settings view ----------------------------------------------------------------------------
 function showView(name) {
   $('mainView').hidden = name !== 'main';
+  $('mainHeader').hidden = name !== 'main';
   $('settingsView').hidden = name !== 'settings';
-  $('toSettings').hidden = name !== 'main';
-  document.querySelector('.tools').hidden = name !== 'main';
 }
 
 async function renderFolder() {
@@ -179,22 +186,29 @@ async function renderFolder() {
   $('allowFolder').hidden = granted;
 }
 
-function fillSettings() {
-  $('depth').value = settings.depth;
-  $('format').value = settings.format;
-  $('settleMs').value = settings.settleMs;
-  $('retentionDays').value = settings.retentionDays;
-  for (const r of document.querySelectorAll('input[name=afterAction]')) r.checked = r.value === settings.afterAction;
+function fillSettings(values = settings) {
+  $('depth').value = values.depth;
+  $('format').value = values.format;
+  $('settleMs').value = values.settleMs;
+  $('retentionDays').value = values.retentionDays;
+  $('flashOn').checked = values.effects.flash.enabled;
+  $('flashCss').value = values.effects.flash.css;
+  $('edgeOn').checked = values.effects.edge.enabled;
+  $('edgeCss').value = values.effects.edge.css;
+  $('afterAction').value = values.afterAction;
 }
 
 async function persistSettings() {
-  const checked = document.querySelector('input[name=afterAction]:checked');
   settings = await saveSettings({
     depth: $('depth').value,
     format: $('format').value,
     settleMs: $('settleMs').value,
-    afterAction: AFTER_ACTIONS.includes(checked?.value) ? checked.value : settings.afterAction,
+    afterAction: AFTER_ACTIONS.includes($('afterAction').value) ? $('afterAction').value : settings.afterAction,
     retentionDays: $('retentionDays').value,
+    effects: {
+      flash: { enabled: $('flashOn').checked, css: $('flashCss').value },
+      edge: { enabled: $('edgeOn').checked, css: $('edgeCss').value },
+    },
   });
   fillSettings();
   $('saved').textContent = '저장됨';
@@ -203,8 +217,23 @@ async function persistSettings() {
 }
 
 function bindSettings() {
-  for (const id of ['depth', 'format', 'settleMs', 'retentionDays']) $(id).addEventListener('change', persistSettings);
-  for (const r of document.querySelectorAll('input[name=afterAction]')) r.addEventListener('change', persistSettings);
+  // like the app's settings: edit, then Save (the test buttons use what is typed, saved or not)
+  $('save').addEventListener('click', persistSettings);
+  $('resetAll').addEventListener('click', () => {
+    fillSettings(SETTING_DEFAULTS);
+    $('saved').textContent = '기본값을 채웠습니다. 저장을 눌러야 적용됩니다';
+  });
+
+  // test buttons play the effect with what is typed now (saved or not) on the page being viewed
+  const testEffect = (which) => async () => {
+    $('effectMsg').textContent = '';
+    const res = await chrome.runtime.sendMessage({ target: 'worker', type: 'effect-test', windowId, which, css: $(`${which}Css`).value });
+    if (!res?.ok) $('effectMsg').textContent = `테스트 실패: ${res?.message ?? '응답 없음'}`;
+  };
+  $('flashTest').addEventListener('click', testEffect('flash'));
+  $('edgeTest').addEventListener('click', testEffect('edge'));
+  $('flashReset').addEventListener('click', () => { $('flashCss').value = EFFECT_DEFAULTS.flash.css; });
+  $('edgeReset').addEventListener('click', () => { $('edgeCss').value = EFFECT_DEFAULTS.edge.css; });
 
   $('pickFolder').addEventListener('click', async () => {
     try {

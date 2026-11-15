@@ -7,11 +7,11 @@
   <link rel="stylesheet" href="panel.css">
 </head>
 <body>
-  <header>
+  <header id="mainHeader">
     <div class="tools">
-      <button id="viewport" data-kind="viewport" title="보이는 화면">화면</button>
-      <button id="full" data-kind="full" title="스크롤 영역을 펼친 전체">전체</button>
-      <button id="element" data-kind="element" title="요소를 골라서">요소</button>
+      <button id="viewport" data-kind="viewport" title="보이는 화면">화면 캡처</button>
+      <button id="full" data-kind="full" title="스크롤 영역을 펼친 전체">전체 캡처</button>
+      <button id="element" data-kind="element" title="요소를 골라서">요소 캡처</button>
     </div>
     <button id="toSettings" class="icon" title="설정" aria-label="설정">⚙</button>
   </header>
@@ -19,71 +19,124 @@
   <main id="mainView">
     <p id="status" role="status">대기 중</p>
     <ul id="list"></ul>
-    <p id="empty" class="hint">아직 촬영한 스크린샷이 없습니다.</p>
+    <p id="empty" class="hint">아직 캡처한 것이 없습니다.</p>
   </main>
 
-  <main id="settingsView" hidden>
-    <div class="bar">
-      <button id="toMain" class="icon" title="돌아가기" aria-label="돌아가기">←</button>
-      <h1>설정</h1>
-      <span id="saved" class="hint" role="status"></span>
+  <div id="settingsView" hidden>
+    <h3>
+      <span class="ttl">설정</span>
+      <button id="toMain" class="inline" title="닫기" aria-label="닫기">✕</button>
+    </h3>
+
+    <div class="dbody">
+      <section class="fgroup box">
+        <div class="fgroup__head"><h2 class="fgroup__title">캡처</h2></div>
+        <div class="fld fld--note">
+          <label class="fld__label" for="depth">깊이</label>
+          <input id="depth" class="fld__text num" type="number" min="0" step="1">
+          <p class="fld__note sub">스크롤 영역을 찾을 깊이입니다. 전체 캡처는 body, 요소 캡처는 고른 요소가 0입니다. 앱처럼 스크롤 영역이 깊이 있으면 값을 올리세요.</p>
+        </div>
+        <div class="fld">
+          <label class="fld__label" for="format">형식</label>
+          <div class="fld__select">
+            <select id="format">
+              <option value="png">PNG</option>
+              <option value="jpeg">JPEG</option>
+              <option value="webp">WebP</option>
+            </select>
+            <svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+        <div class="fld fld--note">
+          <label class="fld__label" for="settleMs">촬영 지연(ms)</label>
+          <input id="settleMs" class="fld__text num" type="number" min="0" step="50">
+          <p class="fld__note sub">캡처 직전에 이 시간만큼 기다립니다. 늦게 뜨는 이미지나 애니메이션이 빠지면 늘립니다. 값이 클수록 캡처가 느려집니다.</p>
+        </div>
+      </section>
+
+      <section class="fgroup box" id="effects">
+        <div class="fgroup__head">
+          <h2 class="fgroup__title">캡처 효과</h2>
+          <p class="fgroup__note sub">CSS 선언만 적습니다(예: <code>background: #fff;</code>). 전체 화면을 덮는 클릭이 통과되는 층에 적용됩니다. 캡처 실패 효과는 빨간색 고정입니다.</p>
+        </div>
+        <div class="fld fld--note">
+          <label class="fld__label" for="flashOn">플래시</label>
+          <input type="checkbox" id="flashOn" class="sw">
+          <p class="fld__note sub">캡처가 끝나면 화면 전체가 잠깐 번쩍입니다.</p>
+        </div>
+        <div class="fld fld--stack">
+          <textarea id="flashCss" class="fld__box" rows="2" spellcheck="false" aria-label="플래시 CSS"></textarea>
+          <div class="btns"><button id="flashTest">플래시 테스트</button><button id="flashReset">기본 스타일</button></div>
+        </div>
+        <div class="fld fld--note">
+          <label class="fld__label" for="edgeOn">가장자리 강조</label>
+          <input type="checkbox" id="edgeOn" class="sw">
+          <p class="fld__note sub">캡처가 끝나면 화면 가장자리가 빛납니다.</p>
+        </div>
+        <div class="fld fld--stack">
+          <textarea id="edgeCss" class="fld__box" rows="3" spellcheck="false" aria-label="가장자리 강조 CSS"></textarea>
+          <div class="btns"><button id="edgeTest">가장자리 테스트</button><button id="edgeReset">기본 스타일</button></div>
+          <p id="effectMsg" class="sub err-msg" role="status"></p>
+          <p class="sub">테스트는 지금 보고 있는 탭에서 한 번 재생하며 디버깅 안내줄이 잠깐 보일 수 있습니다.</p>
+        </div>
+      </section>
+
+      <section class="fgroup box">
+        <div class="fgroup__head"><h2 class="fgroup__title">저장</h2></div>
+        <div class="fld fld--note">
+          <label class="fld__label" for="afterAction">촬영 후 동작</label>
+          <div class="fld__select">
+            <select id="afterAction">
+              <option value="save">지정 경로로 저장</option>
+              <option value="history">히스토리에만 기록</option>
+            </select>
+            <svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <p class="fld__note sub">기록에는 어떤 동작을 골라도 남습니다. 클립보드 복사는 자동으로 하지 않고 기록 항목의 복사 버튼으로 합니다.</p>
+        </div>
+        <div class="fld fld--note">
+          <span class="fld__label">저장 경로</span>
+          <div class="fld__group btns">
+            <button id="allowFolder" hidden>권한 다시 허용</button>
+            <button id="pickFolder">찾아보기</button>
+            <button id="resetFolder">기본</button>
+          </div>
+          <p class="fld__note sub"><span id="folderName"></span> 고르기 전에는 Chrome의 다운로드 폴더에 저장합니다. 고른 폴더는 브라우저를 다시 시작하면 접근 권한을 다시 허용해야 할 수 있습니다.</p>
+        </div>
+      </section>
+
+      <section class="fgroup box">
+        <div class="fgroup__head"><h2 class="fgroup__title">기록</h2></div>
+        <div class="fld fld--note">
+          <label class="fld__label" for="retentionDays">보관 일수</label>
+          <input id="retentionDays" class="fld__text num" type="number" min="0" step="1">
+          <p class="fld__note sub">이 일수가 지난 기록은 자동으로 지웁니다. 0이면 직접 비울 때까지 보관합니다.</p>
+        </div>
+        <div class="fld">
+          <span class="fld__label">기록 비우기</span>
+          <button id="clearAll" class="danger">전체 비우기</button>
+        </div>
+      </section>
+
+      <section class="fgroup box">
+        <div class="fgroup__head"><h2 class="fgroup__title">단축키</h2></div>
+        <div class="fld"><span class="fld__label">화면 캡처</span><kbd>Alt+Shift+1</kbd></div>
+        <div class="fld"><span class="fld__label">전체 캡처</span><kbd>Alt+Shift+2</kbd></div>
+        <div class="fld"><span class="fld__label">요소 캡처</span><kbd>Alt+Shift+3</kbd></div>
+        <div class="fld fld--note">
+          <span class="fld__label">패널 열기/닫기</span>
+          <kbd>Alt+Shift+S</kbd>
+          <p class="fld__note sub"><code>chrome://extensions/shortcuts</code>에서 바꿉니다. 컨텍스트 메뉴(CDP Screenshot 하위 메뉴)로도 같은 캡처를 합니다. 결과는 패널의 기록에 쌓입니다.</p>
+        </div>
+      </section>
     </div>
 
-    <label class="field">
-      <span class="ti">깊이(depth)</span>
-      <input id="depth" type="number" min="0" step="1">
-      <span class="hint">스크롤 컨테이너를 찾을 깊이. 전체는 body, 요소는 고른 요소가 0입니다.</span>
-    </label>
-
-    <label class="field">
-      <span class="ti">형식</span>
-      <select id="format">
-        <option value="png">PNG</option>
-        <option value="jpeg">JPEG</option>
-        <option value="webp">WebP</option>
-      </select>
-    </label>
-
-    <label class="field">
-      <span class="ti">안정화 대기(ms)</span>
-      <input id="settleMs" type="number" min="0" step="50">
-      <span class="hint">지연 로딩 이미지나 스크롤 연동 애니메이션이 빠지면 늘립니다.</span>
-    </label>
-
-    <fieldset class="field">
-      <legend class="ti">촬영 후 동작</legend>
-      <label><input type="radio" name="afterAction" value="save"> 지정 경로로 저장</label>
-      <label><input type="radio" name="afterAction" value="history"> 히스토리에만 기록</label>
-      <span class="hint">히스토리에는 어떤 동작을 골라도 기록됩니다. 클립보드 복사는 자동으로 하지 않습니다. 촬영 방법이나 페이지에 따라 복사가 되고 안 되는 일이 없도록, 기록 항목의 복사 버튼으로만 복사합니다.</span>
-    </fieldset>
-
-    <div class="field">
-      <span class="ti">저장 경로</span>
-      <span id="folderName" class="val"></span>
-      <div class="row">
-        <button id="pickFolder">폴더 선택</button>
-        <button id="allowFolder" hidden>폴더 권한 다시 허용</button>
-        <button id="resetFolder">기본으로</button>
-      </div>
-      <span class="hint">고르기 전에는 Chrome의 다운로드 폴더에 저장합니다. 고른 폴더는 브라우저를 다시 시작하면 접근 권한을 다시 허용해야 할 수 있습니다.</span>
-    </div>
-
-    <label class="field">
-      <span class="ti">기록 보관 일수</span>
-      <input id="retentionDays" type="number" min="0" step="1">
-      <span class="hint">이 일수가 지난 기록은 자동으로 지웁니다. 0이면 직접 비울 때까지 보관합니다.</span>
-    </label>
-
-    <div class="field">
-      <span class="ti">기록</span>
-      <div class="row"><button id="clearAll" class="danger">기록 전체 비우기</button></div>
-    </div>
-
-    <section class="field">
-      <span class="ti">단축키</span>
-      <span class="hint">Alt+Shift+1 화면, Alt+Shift+2 전체, Alt+Shift+3 요소, Alt+Shift+S 패널 열기/닫기 (<code>chrome://extensions/shortcuts</code>에서 바꿉니다). 컨텍스트 메뉴로도 같은 촬영을 합니다. 결과는 여기 기록에 쌓입니다.</span>
-    </section>
-  </main>
+    <footer>
+      <span id="saved" class="sub" role="status"></span>
+      <button id="resetAll">기본설정</button>
+      <button id="save" class="primary">저장</button>
+    </footer>
+  </div>
 
   <script type="module" src="panel.js"></script>
 </body>
