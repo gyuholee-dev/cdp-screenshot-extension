@@ -2,7 +2,10 @@ import { CaptureError, ErrorCode } from './errors.js';
 import { computeClip, zoomOf } from './geometry.js';
 import { expandDocument, expandScrollers, fitViewportToClip } from './expand.js';
 import { pickNode } from './pick.js';
+import { callOn, restoreAncestors, unclipAncestors } from './scripts.js';
 import { assertWithinLimit, devicePixelRatio, normalizeOptions, runSession, screenshot } from './util.js';
+
+const MAX_SHOT_ATTEMPTS = 3;
 
 /** Visible part of the page, as is. */
 export async function captureViewport(cdp, options = {}) {
@@ -75,24 +78,43 @@ export async function captureNode(cdp, target, options = {}) {
 
     opts.progress({ stage: 'expand' });
     const exp = await expandScrollers(cdp, object.objectId, opts, defer, dpr);
-    if (exp.expanded) await cdp.send('DOM.scrollIntoViewIfNeeded', { backendNodeId });
+    // Unfolding can make the element taller than a clipping ancestor (bug report 1): free it from them.
+    const ancId = await callOn(cdp, object.objectId, unclipAncestors, [], false);
+    if (ancId) {
+      defer(async () => {
+        try { await callOn(cdp, ancId, restoreAncestors); } finally {
+          await cdp.send('Runtime.releaseObject', { objectId: ancId }).catch(() => {});
+        }
+      });
+    }
+    await cdp.send('DOM.scrollIntoViewIfNeeded', { backendNodeId });
 
     const measure = async () => {
       const { model } = await cdp.send('DOM.getBoxModel', { backendNodeId });
       const metrics = await cdp.send('Page.getLayoutMetrics');
       return { metrics, clip: computeClip(model, metrics) };
     };
-    const first = await measure();
-    const z = zoomOf(first.metrics);
-    // clip is in device-independent px; the limit is in device px = css * dpr
-    assertWithinLimit((first.clip.width / z) * dpr, (first.clip.height / z) * dpr, opts.maxSidePixels);
-    const clip = await fitViewportToClip(cdp, first.clip, first.metrics, measure, opts, defer, dpr);
+    // Content can still change between measuring and shooting (a log that keeps growing, text
+    // that re-wraps once the viewport changes): shoot, measure again, and shoot again if the
+    // element is no longer the size the clip was cut for (bug report 1). Bounded.
+    let result;
+    for (let attempt = 0; attempt < MAX_SHOT_ATTEMPTS; attempt++) {
+      const first = await measure();
+      const z = zoomOf(first.metrics);
+      // clip is in device-independent px; the limit is in device px = css * dpr
+      assertWithinLimit((first.clip.width / z) * dpr, (first.clip.height / z) * dpr, opts.maxSidePixels);
+      const clip = await fitViewportToClip(cdp, first.clip, first.metrics, measure, opts, defer, dpr);
 
-    opts.progress({ stage: 'capture' });
-    return screenshot(cdp, opts, { captureBeyondViewport: true, clip }, {
-      width: Math.round((clip.width / z) * dpr),
-      height: Math.round((clip.height / z) * dpr),
-    });
+      opts.progress({ stage: 'capture' });
+      result = await screenshot(cdp, opts, { captureBeyondViewport: true, clip }, {
+        width: Math.round((clip.width / z) * dpr),
+        height: Math.round((clip.height / z) * dpr),
+      });
+      const after = (await measure()).clip;
+      const moved = Math.abs(after.height - clip.height) > 1 || Math.abs(after.width - clip.width) > 1;
+      if (!moved) break;
+    }
+    return result;
   });
 }
 

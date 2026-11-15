@@ -74,6 +74,43 @@ export function restoreState() {
   return true;
 }
 
+/**
+ * this = the element to shoot. Ancestors that clip it (the app scrolls an inner container, not the
+ * document: body{overflow:hidden} + .dbody{overflow:auto}) would cut the shot at their edge, so their
+ * overflow is set to visible (originals and scroll positions saved in the returned state).
+ * Innermost first; rects are re-read after each change because layout moves.
+ */
+export function unclipAncestors() {
+  const html = document.documentElement;
+  const body = document.body;
+  const clips = (v) => v === 'hidden' || v === 'auto' || v === 'scroll' || v === 'clip';
+  const state = { saved: [] };
+  for (let a = this.parentElement; a && a !== body && a !== html; a = a.parentElement) {
+    const cs = getComputedStyle(a);
+    if (!clips(cs.overflowY) && !clips(cs.overflowX)) continue;
+    const r = this.getBoundingClientRect();
+    const ar = a.getBoundingClientRect();
+    const top = ar.top + a.clientTop;
+    const bottom = top + a.clientHeight;
+    if (r.bottom <= bottom + 1 && r.top >= top - 1) continue; // fully inside: nothing is cut
+    state.saved.push([a, a.scrollTop, a.scrollLeft, a.style.getPropertyValue('overflow'), a.style.getPropertyPriority('overflow')]);
+    a.style.setProperty('overflow', 'visible', 'important');
+  }
+  return state;
+}
+
+/** this = state from unclipAncestors. */
+export function restoreAncestors() {
+  for (let i = this.saved.length - 1; i >= 0; i--) {
+    const [a, st, sl, v, prio] = this.saved[i];
+    if (v) a.style.setProperty('overflow', v, prio); else a.style.removeProperty('overflow');
+    a.scrollTop = st;
+    a.scrollLeft = sl;
+  }
+  this.saved.length = 0;
+  return true;
+}
+
 /** Call a page function on a remote object. byValue=false returns the result's objectId. */
 export async function callOn(cdp, objectId, fn, args = [], byValue = true) {
   const r = await cdp.send('Runtime.callFunctionOn', {
