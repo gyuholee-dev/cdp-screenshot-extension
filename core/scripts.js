@@ -75,6 +75,39 @@ export function restoreState() {
 }
 
 /**
+ * this = the state (tracked scrollers) or nothing. Resolves once the heights that drive the
+ * unfolding stopped changing for two frames in a row, or after `maxMs`. {hidden: true} when the
+ * window renders no frames at all.
+ */
+export function waitStable(maxMs) {
+  const list = this && this.scrollers;
+  const read = () => {
+    let s = `${innerWidth}x${innerHeight}|${document.documentElement.scrollHeight}|${document.body ? document.body.scrollHeight : 0}`;
+    if (list) for (const el of list) s += `|${el.isConnected ? `${el.scrollHeight}:${el.clientHeight}` : 'x'}`;
+    return s;
+  };
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    let prev = read();
+    let same = 0;
+    let frames = 0;
+    let seen = false;
+    const stall = setTimeout(() => { if (!seen) resolve({ hidden: true }); }, 150);
+    const tick = () => {
+      seen = true;
+      clearTimeout(stall);
+      frames++;
+      const cur = read();
+      same = cur === prev ? same + 1 : 0;
+      prev = cur;
+      if ((same >= 2 && frames >= 2) || performance.now() - t0 > maxMs) { resolve({ hidden: false, frames }); return; }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+}
+
+/**
  * this = the element to shoot. Ancestors that clip it (the app scrolls an inner container, not the
  * document: body{overflow:hidden} + .dbody{overflow:auto}) would cut the shot at their edge, so their
  * overflow is set to visible (originals and scroll positions saved in the returned state).
@@ -118,6 +151,7 @@ export async function callOn(cdp, objectId, fn, args = [], byValue = true) {
     functionDeclaration: fn.toString(),
     arguments: args.map((value) => ({ value })),
     returnByValue: byValue,
+    awaitPromise: true,
   });
   if (r?.exceptionDetails) {
     const d = r.exceptionDetails;

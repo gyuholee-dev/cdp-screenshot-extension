@@ -1,10 +1,28 @@
-import { assertWithinLimit, settle } from './util.js';
+import { assertWithinLimit, layoutBarrier } from './util.js';
 import { zoomOf } from './geometry.js';
-import { callOn, forceExpand, measureHidden, restoreState, scanScrollers } from './scripts.js';
+import { callOn, forceExpand, measureHidden, restoreState, scanScrollers, waitStable } from './scripts.js';
 
 const MAX_PASSES = 6;
 const MAX_ROUNDS = 3;
 const PROBE_PX = 200; // first growth: small, only to learn which scrollers respond and how fast
+const LAYOUT_WAIT_MAX_MS = 300; // upper bound of one layoutWait (a height that keeps animating)
+
+/**
+ * Layout wait: after the page was changed for the shot, wait only until the heights that drive the
+ * unfolding stopped changing (two frames in a row; usually ~35ms), at most LAYOUT_WAIT_MAX_MS.
+ * The one fixed delay (`settleMs`) is paid once, right before the shot (util.settle).
+ */
+async function layoutWait(cdp, opts, stateId) {
+  if (opts.hiddenWindow) return;
+  const r = stateId
+    ? await callOn(cdp, stateId, waitStable, [LAYOUT_WAIT_MAX_MS])
+    : (await cdp.send('Runtime.evaluate', {
+      expression: `(${waitStable.toString()}).call(null, ${LAYOUT_WAIT_MAX_MS})`,
+      awaitPromise: true,
+      returnByValue: true,
+    }))?.result?.value;
+  if (r?.hidden) opts.hiddenWindow = true;
+}
 
 /**
  * Set the viewport to a CSS-pixel size. With a browser zoom other than 100% the size passed to
@@ -12,7 +30,7 @@ const PROBE_PX = 200; // first growth: small, only to learn which scrollers resp
  * the first call is used to measure how many CSS px one override px gives, and the size is
  * corrected by that ratio from then on (kept on `opts` for the rest of this capture).
  */
-async function applyViewport(cdp, opts, cssW, cssH) {
+async function applyViewport(cdp, opts, cssW, cssH, stateId) {
   let ratio = opts.viewportRatio ?? 1; // css px per override px
   for (let attempt = 0; attempt < 2; attempt++) {
     const height = Math.max(1, Math.round(cssH / ratio));
@@ -22,7 +40,7 @@ async function applyViewport(cdp, opts, cssW, cssH) {
       deviceScaleFactor: 0, // keep the original scale
       mobile: false,
     });
-    await settle(cdp, opts);
+    await layoutWait(cdp, opts, stateId);
     if (opts.viewportRatio) return;
     const m = await cdp.send('Page.getLayoutMetrics');
     const v = m.cssLayoutViewport ?? m.layoutViewport;
@@ -72,10 +90,10 @@ export async function expandScrollers(cdp, rootObjectId, opts, defer, dpr) {
   // m0.max is a lower bound of the height a responsive scroller needs: reject early if even that is too big.
   assertWithinLimit(view.width * dpr, (view.height + m0.max) * dpr, opts.maxSidePixels);
 
-  // Cleanup order (reverse of registration): clear override -> settle -> restore state.
+  // Cleanup order (reverse of registration): clear override -> layout barrier -> restore state.
   defer(async () => {
     try {
-      await settle(cdp, opts);
+      await layoutBarrier(cdp);
       await callOn(cdp, stateId, restoreState);
     } finally {
       await cdp.send('Runtime.releaseObject', { objectId: stateId }).catch(() => {});
@@ -87,7 +105,7 @@ export async function expandScrollers(cdp, rootObjectId, opts, defer, dpr) {
   const setHeight = async (h) => {
     assertWithinLimit(view.width * dpr, h * dpr, opts.maxSidePixels);
     height = h;
-    await applyViewport(cdp, opts, view.width, h);
+    await applyViewport(cdp, opts, view.width, h, stateId);
   };
 
   // One round: grow for the scrollers that follow the viewport. Returns when none still does.
@@ -127,7 +145,7 @@ export async function expandScrollers(cdp, rootObjectId, opts, defer, dpr) {
     const m = await callOn(cdp, stateId, measureHidden);
     if (m.max <= 1) break;
     await callOn(cdp, stateId, forceExpand);
-    await settle(cdp, opts);
+    await layoutWait(cdp, opts, stateId);
   }
   return { expanded: true, hidden: m0.max };
 }
@@ -156,9 +174,9 @@ export async function expandDocument(cdp, opts, defer, dpr) {
 
   const pos = await cdp.send('Runtime.evaluate', { expression: '[window.scrollX, window.scrollY]', returnByValue: true });
   const [sx, sy] = pos?.result?.value ?? [0, 0];
-  // Cleanup order (reverse): clear override -> settle -> restore scroll position.
+  // Cleanup order (reverse): clear override -> layout barrier -> restore scroll position.
   defer(async () => {
-    await settle(cdp, opts);
+    await layoutBarrier(cdp);
     await cdp.send('Runtime.evaluate', { expression: `window.scrollTo(${Number(sx)}, ${Number(sy)})` });
   });
   defer(() => cdp.send('Emulation.clearDeviceMetricsOverride'));
@@ -199,9 +217,9 @@ export async function fitViewportToClip(cdp, clip, metrics, measure, opts, defer
 
   const pos = await cdp.send('Runtime.evaluate', { expression: '[window.scrollX, window.scrollY]', returnByValue: true });
   const [sx, sy] = pos?.result?.value ?? [0, 0];
-  // Cleanup order (reverse): clear override -> settle -> restore scroll position.
+  // Cleanup order (reverse): clear override -> layout barrier -> restore scroll position.
   defer(async () => {
-    await settle(cdp, opts);
+    await layoutBarrier(cdp);
     await cdp.send('Runtime.evaluate', { expression: `window.scrollTo(${Number(sx)}, ${Number(sy)})` });
   });
   defer(() => cdp.send('Emulation.clearDeviceMetricsOverride'));
@@ -210,7 +228,7 @@ export async function fitViewportToClip(cdp, clip, metrics, measure, opts, defer
   for (let pass = 0; pass < MAX_DOC_PASSES; pass++) {
     await applyViewport(cdp, opts, view.clientWidth, Math.ceil(current.height / z));
     await cdp.send('Runtime.evaluate', { expression: `window.scrollTo(${Number(sx)}, ${Math.floor(current.y / z)})` });
-    await settle(cdp, opts);
+    await layoutWait(cdp, opts);
     const next = await measure();
     current = next.clip;
     if (clipFits(current, next.metrics.cssVisualViewport ?? next.metrics.visualViewport ?? {})) break;

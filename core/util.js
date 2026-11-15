@@ -4,10 +4,9 @@ export const DEFAULTS = Object.freeze({
   depth: 5, // default: apps often nest the scrolling area ~4 levels below <body> (mockup of the Ollama app: <main> at 4)
   format: 'png',
   quality: 90, // jpeg/webp only
-  settleMs: 250,
+  settleMs: 250, // delay right before the shot (late images, animations); not used between the steps before it (50 was too short for full-page unfolding)
   maxSidePixels: 16384, // assumption, not measured (handoff §5)
   pickTimeoutMs: 60000,
-  maxSettleWaitMs: 1500, // cap for hidden windows that never paint
 });
 
 const MIME = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
@@ -56,16 +55,31 @@ export async function runSession(cdp, fn) {
   }
 }
 
-/** Wait for layout/paint to settle. Capped because hidden windows never fire rAF. */
+const FRAME_STALL_MS = 150; // no animation frame within this: the window is hidden and never paints
+
+/**
+ * The delay right before a shot (`settleMs`): two frames, then settleMs. Called once per shot, after
+ * the page was changed for it. A window that never renders frames is detected here (and in
+ * layoutWait) once; the rest of that capture then skips frame waits instead of paying a timeout each.
+ */
 export async function settle(cdp, opts) {
-  const ms = opts.settleMs;
-  const cap = ms + opts.maxSettleWaitMs;
+  if (opts.hiddenWindow) return;
   const expression = `new Promise((resolve) => {
-    const t = setTimeout(resolve, ${cap});
-    const done = () => { clearTimeout(t); resolve(); };
-    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done, ${ms})));
+    let seen = false;
+    const stall = setTimeout(() => { if (!seen) resolve(false); }, ${FRAME_STALL_MS});
+    requestAnimationFrame(() => {
+      seen = true;
+      clearTimeout(stall);
+      requestAnimationFrame(() => setTimeout(() => resolve(true), ${Math.max(0, Number(opts.settleMs) || 0)}));
+    });
   })`;
-  await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  const r = await cdp.send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+  if (r?.result?.value === false) opts.hiddenWindow = true;
+}
+
+/** Make the page lay out now (after clearing a viewport override etc.) without waiting for a frame. */
+export async function layoutBarrier(cdp) {
+  await cdp.send('Runtime.evaluate', { expression: 'document.documentElement.offsetHeight', returnByValue: true });
 }
 
 export function base64ToBytes(b64) {

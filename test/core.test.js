@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { captureViewport, captureFull, captureNode, pickNode, CaptureError, ErrorCode } from 'cdp-screenshot-extension/core';
 import { computeClip } from '../core/geometry.js';
-import { imageSize, base64ToBytes } from '../core/util.js';
+import { imageSize, base64ToBytes, settle, DEFAULTS } from '../core/util.js';
 import * as scripts from '../core/scripts.js';
 import { makeFakeCdp, makePng, pageFns } from './helpers/fake-cdp.js';
 
@@ -10,7 +10,7 @@ const fast = { settleMs: 0 };
 const rejectsWith = (p, code) => assert.rejects(p, (e) => e instanceof CaptureError && e.code === code);
 
 test('page scripts are syntactically valid function sources', () => {
-  for (const fn of [scripts.scanScrollers, scripts.measureHidden, scripts.forceExpand, scripts.restoreState]) {
+  for (const fn of [scripts.scanScrollers, scripts.measureHidden, scripts.forceExpand, scripts.restoreState, scripts.waitStable]) {
     assert.doesNotThrow(() => new Function(`return (${fn.toString()})`), fn.name);
   }
 });
@@ -506,4 +506,58 @@ test('override units are calibrated once per capture (one extra override, not on
   const cdp = zoomedDocCdp(0.9, 3000);
   await captureFull(cdp, fast);
   assert.equal(heights(cdp).length, 2); // first call measures the ratio, second is on target
+});
+
+// --- waiting ----------------------------------------------------------------------------
+
+const frameWaits = (cdp) => cdp.calls.filter((c) => c.method === 'Runtime.evaluate' && String(c.params.expression).includes('requestAnimationFrame'));
+const layoutWaits = (cdp) => cdp.calls.filter((c) => c.params?.functionDeclaration?.includes('waitStable'));
+
+test('the shot delay (settleMs) is paid once per shot, not once per step', async () => {
+  let cdp;
+  cdp = unfoldCdp(() => {
+    const grown = heights(cdp).length ? heights(cdp).at(-1) - 600 : 0;
+    const left = Math.max(0, 1000 - grown);
+    return { hidden: left, max: left, remaining: left > 0 ? 1 : 0, total: 1, items: [left] };
+  });
+  await captureFull(cdp, { settleMs: 50 });
+  assert.equal(frameWaits(cdp).length, 1);
+  assert.ok(layoutWaits(cdp).length >= 1); // the steps before it only wait for the layout
+  const shot = cdp.names().indexOf('Page.captureScreenshot');
+  const delay = cdp.calls.findIndex((c) => c.method === 'Runtime.evaluate' && String(c.params.expression).includes('requestAnimationFrame'));
+  assert.ok(delay >= 0 && delay < shot);
+});
+
+test('no delay and no waiting when nothing was changed for the shot', async () => {
+  const cdp = makeFakeCdp({ 'Runtime.callFunctionOn': pageFns({ scanScrollers: null, measureHidden: { hidden: 0, max: 0, remaining: 0, total: 0, items: [] } }) });
+  await captureFull(cdp, { settleMs: 50 });
+  assert.equal(frameWaits(cdp).length, 0);
+});
+
+test('restoring the page does not wait for frames', async () => {
+  let cdp;
+  cdp = unfoldCdp(() => {
+    const grown = heights(cdp).length ? heights(cdp).at(-1) - 600 : 0;
+    const left = Math.max(0, 500 - grown);
+    return { hidden: left, max: left, remaining: left > 0 ? 1 : 0, total: 1, items: [left] };
+  });
+  await captureFull(cdp, { settleMs: 50 });
+  const shot = cdp.names().indexOf('Page.captureScreenshot');
+  const after = cdp.calls.slice(shot + 1);
+  assert.ok(!after.some((c) => String(c.params?.expression ?? '').includes('requestAnimationFrame')));
+  assert.ok(!after.some((c) => c.params?.functionDeclaration?.includes('waitStable')));
+});
+
+test('a window that renders no frames is detected once; later waits are skipped', async () => {
+  const cdp = makeFakeCdp({ 'Runtime.evaluate': () => ({ result: { value: false } }) });
+  const opts = { settleMs: 50 };
+  await settle(cdp, opts);
+  assert.equal(opts.hiddenWindow, true);
+  const n = cdp.calls.length;
+  await settle(cdp, opts);
+  assert.equal(cdp.calls.length, n);
+});
+
+test('the default shot delay is 250 ms', () => {
+  assert.equal(DEFAULTS.settleMs, 250);
 });

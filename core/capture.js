@@ -3,7 +3,7 @@ import { computeClip, zoomOf } from './geometry.js';
 import { expandDocument, expandScrollers, fitViewportToClip } from './expand.js';
 import { pickNode } from './pick.js';
 import { callOn, restoreAncestors, unclipAncestors } from './scripts.js';
-import { assertWithinLimit, devicePixelRatio, normalizeOptions, runSession, screenshot } from './util.js';
+import { assertWithinLimit, devicePixelRatio, normalizeOptions, runSession, screenshot, settle } from './util.js';
 
 const MAX_SHOT_ATTEMPTS = 3;
 
@@ -39,6 +39,7 @@ export async function captureFull(cdp, options = {}) {
     const cssH = Math.min(doc.contentH, doc.viewH);
     assertWithinLimit(cssW * dpr, cssH * dpr, opts.maxSidePixels);
     const clip = { x: 0, y: 0, width: Math.round(cssW * doc.zoom), height: Math.round(cssH * doc.zoom), scale: 1 };
+    await settle(cdp, opts); // the one delay before the shot (the page was changed for it)
     return screenshot(cdp, opts, { captureBeyondViewport: true, clip }, {
       width: Math.round(cssW * dpr),
       height: Math.round(cssH * dpr),
@@ -106,6 +107,7 @@ export async function captureNode(cdp, target, options = {}) {
       const clip = await fitViewportToClip(cdp, first.clip, first.metrics, measure, opts, defer, dpr);
 
       opts.progress({ stage: 'capture' });
+      await settle(cdp, opts); // the one delay before the shot
       result = await screenshot(cdp, opts, { captureBeyondViewport: true, clip }, {
         width: Math.round((clip.width / z) * dpr),
         height: Math.round((clip.height / z) * dpr),
