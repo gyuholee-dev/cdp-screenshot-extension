@@ -1,6 +1,10 @@
-// Result handling lives in the host (here: the extension), never in core.
+// Saving a screenshot to a folder. Runs in the service worker (no DOM, no object URLs: the download
+// goes through a data URL). The result handling lives in the host (here: the extension), never in core.
 
-const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+// Until a folder is chosen: Chrome's download folder itself ('' = no subfolder; the downloads API
+// cannot take an absolute path).
+export const DEFAULT_SUBFOLDER = '';
+const inDefaultFolder = (filename) => (DEFAULT_SUBFOLDER ? `${DEFAULT_SUBFOLDER}/${filename}` : filename);
 
 export function bytesToBase64(bytes) {
   let bin = '';
@@ -11,9 +15,12 @@ export function bytesToBase64(bytes) {
   return btoa(bin);
 }
 
-export function bytesToDataUrl(bytes, mime) {
-  return `data:${mime};base64,${bytesToBase64(bytes)}`;
+export async function blobToDataUrl(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return `data:${blob.type || 'application/octet-stream'};base64,${bytesToBase64(bytes)}`;
 }
+
+const EXT = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
 
 export function buildFilename(kind, mime, date = new Date()) {
   const p = (n) => String(n).padStart(2, '0');
@@ -21,46 +28,37 @@ export function buildFilename(kind, mime, date = new Date()) {
   return `screenshot-${kind}-${stamp}.${EXT[mime] ?? 'png'}`;
 }
 
-/** Runs inside the page (via chrome.scripting): must be self-contained. */
-export async function writeImageToClipboard(base64, mime) {
-  const bin = atob(base64);
-  const u8 = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
-  let blob = new Blob([u8], { type: mime });
-  if (mime !== 'image/png') { // the async clipboard only takes PNG for images
-    const bmp = await createImageBitmap(blob);
-    const canvas = new OffscreenCanvas(bmp.width, bmp.height);
-    canvas.getContext('2d').drawImage(bmp, 0, 0);
-    blob = await canvas.convertToBlob({ type: 'image/png' });
-  }
-  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-  return true;
-}
-
-async function download(result, kind, chromeApi) {
-  const filename = buildFilename(kind, result.mime);
-  await chromeApi.downloads.download({ url: bytesToDataUrl(result.bytes, result.mime), filename, saveAs: false });
-  return filename;
+async function writeToFolder(dirHandle, blob, filename) {
+  const file = await dirHandle.getFileHandle(filename, { create: true });
+  const w = await file.createWritable();
+  try { await w.write(blob); } finally { await w.close(); }
 }
 
 /**
- * Save a capture result per settings.saveMode.
- * @returns {Promise<{mode: 'download'|'clipboard', filename?: string, note?: string}>}
+ * Save into the chosen folder when there is one and it may be written, otherwise into
+ * Chrome's download folder. A folder whose permission was lost (e.g. after a browser restart) is not
+ * asked again here: asking needs a click, which the service worker does not have.
+ * @returns {Promise<{where: 'folder'|'downloads', path: string, note?: string}>}
  */
-export async function saveResult(result, kind, settings, tabId, chromeApi = globalThis.chrome) {
-  if (settings.saveMode === 'clipboard') {
+export async function saveBlob(blob, filename, { dirHandle, chromeApi = globalThis.chrome } = {}) {
+  let note;
+  if (dirHandle) {
     try {
-      const [res] = await chromeApi.scripting.executeScript({
-        target: { tabId },
-        func: writeImageToClipboard,
-        args: [bytesToBase64(result.bytes), result.mime],
-      });
-      if (res?.result === true) return { mode: 'clipboard' };
-      throw new Error('clipboard write returned no result');
+      const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') {
+        await writeToFolder(dirHandle, blob, filename);
+        return { where: 'folder', path: `${dirHandle.name}/${filename}` };
+      }
+      note = '선택한 폴더에 쓸 권한이 없어 다운로드 폴더에 저장했습니다(설정에서 폴더를 다시 허용하세요).';
     } catch (e) {
-      const filename = await download(result, kind, chromeApi);
-      return { mode: 'download', filename, note: `클립보드 복사에 실패해 다운로드로 저장했습니다: ${e?.message ?? e}` };
+      note = `선택한 폴더에 저장하지 못해 다운로드 폴더에 저장했습니다: ${e?.message ?? e}`;
     }
   }
-  return { mode: 'download', filename: await download(result, kind, chromeApi) };
+  await chromeApi.downloads.download({
+    url: await blobToDataUrl(blob),
+    filename: inDefaultFolder(filename),
+    conflictAction: 'uniquify',
+    saveAs: false,
+  });
+  return { where: 'downloads', path: inDefaultFolder(filename), ...(note ? { note } : {}) };
 }

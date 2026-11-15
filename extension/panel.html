@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CDP Screenshot</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <header>
+    <div class="tools">
+      <button id="viewport" data-kind="viewport" title="보이는 화면">화면</button>
+      <button id="full" data-kind="full" title="스크롤 영역을 펼친 전체">전체</button>
+      <button id="element" data-kind="element" title="요소를 골라서">요소</button>
+    </div>
+    <button id="toSettings" class="icon" title="설정" aria-label="설정">⚙</button>
+  </header>
+
+  <main id="mainView">
+    <p id="status" role="status">대기 중</p>
+    <ul id="list"></ul>
+    <p id="empty" class="hint">아직 촬영한 스크린샷이 없습니다.</p>
+  </main>
+
+  <main id="settingsView" hidden>
+    <div class="bar">
+      <button id="toMain" class="icon" title="돌아가기" aria-label="돌아가기">←</button>
+      <h1>설정</h1>
+      <span id="saved" class="hint" role="status"></span>
+    </div>
+
+    <label class="field">
+      <span class="ti">깊이(depth)</span>
+      <input id="depth" type="number" min="0" step="1">
+      <span class="hint">스크롤 컨테이너를 찾을 깊이. 전체는 body, 요소는 고른 요소가 0입니다.</span>
+    </label>
+
+    <label class="field">
+      <span class="ti">형식</span>
+      <select id="format">
+        <option value="png">PNG</option>
+        <option value="jpeg">JPEG</option>
+        <option value="webp">WebP</option>
+      </select>
+    </label>
+
+    <label class="field">
+      <span class="ti">안정화 대기(ms)</span>
+      <input id="settleMs" type="number" min="0" step="50">
+      <span class="hint">지연 로딩 이미지나 스크롤 연동 애니메이션이 빠지면 늘립니다.</span>
+    </label>
+
+    <fieldset class="field">
+      <legend class="ti">촬영 후 동작</legend>
+      <label><input type="radio" name="afterAction" value="save"> 지정 경로로 저장</label>
+      <label><input type="radio" name="afterAction" value="history"> 히스토리에만 기록</label>
+      <span class="hint">히스토리에는 어떤 동작을 골라도 기록됩니다. 클립보드 복사는 자동으로 하지 않습니다. 촬영 방법이나 페이지에 따라 복사가 되고 안 되는 일이 없도록, 기록 항목의 복사 버튼으로만 복사합니다.</span>
+    </fieldset>
+
+    <div class="field">
+      <span class="ti">저장 경로</span>
+      <span id="folderName" class="val"></span>
+      <div class="row">
+        <button id="pickFolder">폴더 선택</button>
+        <button id="allowFolder" hidden>폴더 권한 다시 허용</button>
+        <button id="resetFolder">기본으로</button>
+      </div>
+      <span class="hint">고르기 전에는 Chrome의 다운로드 폴더에 저장합니다. 고른 폴더는 브라우저를 다시 시작하면 접근 권한을 다시 허용해야 할 수 있습니다.</span>
+    </div>
+
+    <label class="field">
+      <span class="ti">기록 보관 일수</span>
+      <input id="retentionDays" type="number" min="0" step="1">
+      <span class="hint">이 일수가 지난 기록은 자동으로 지웁니다. 0이면 직접 비울 때까지 보관합니다.</span>
+    </label>
+
+    <div class="field">
+      <span class="ti">기록</span>
+      <div class="row"><button id="clearAll" class="danger">기록 전체 비우기</button></div>
+    </div>
+
+    <section class="field">
+      <span class="ti">단축키</span>
+      <span class="hint">Alt+Shift+1 화면, Alt+Shift+2 전체, Alt+Shift+3 요소, Alt+Shift+S 패널 열기/닫기 (<code>chrome://extensions/shortcuts</code>에서 바꿉니다). 컨텍스트 메뉴로도 같은 촬영을 합니다. 결과는 여기 기록에 쌓입니다.</span>
+    </section>
+  </main>
+
+  <script type="module" src="panel.js"></script>
+</body>
+</html>

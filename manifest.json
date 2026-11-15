@@ -1,33 +1,53 @@
 {
   "manifest_version": 3,
   "name": "CDP Screenshot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "CDP 기반 스크린샷: 화면, 전체, 엘리먼트 (개발자용, 압축 해제 로드)",
-  "minimum_chrome_version": "120",
-  "permissions": ["debugger", "contextMenus", "downloads", "activeTab", "scripting", "storage"],
+  "minimum_chrome_version": "141",
+  "permissions": [
+    "debugger",
+    "downloads",
+    "storage",
+    "unlimitedStorage",
+    "sidePanel",
+    "contextMenus",
+    "activeTab",
+    "scripting"
+  ],
   "background": {
     "service_worker": "extension/service-worker.js",
     "type": "module"
   },
   "action": {
-    "default_title": "CDP Screenshot 설정"
+    "default_title": "CDP Screenshot 패널 열기/닫기"
   },
-  "options_ui": {
-    "page": "extension/options.html",
-    "open_in_tab": true
+  "side_panel": {
+    "default_path": "extension/panel.html"
   },
   "commands": {
     "viewport": {
-      "suggested_key": { "default": "Alt+Shift+1" },
+      "suggested_key": {
+        "default": "Alt+Shift+1"
+      },
       "description": "스크린샷"
     },
     "full": {
-      "suggested_key": { "default": "Alt+Shift+2" },
+      "suggested_key": {
+        "default": "Alt+Shift+2"
+      },
       "description": "전체 스크린샷"
     },
     "element": {
-      "suggested_key": { "default": "Alt+Shift+3" },
+      "suggested_key": {
+        "default": "Alt+Shift+3"
+      },
       "description": "엘리먼트 스크린샷"
+    },
+    "toggle-panel": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "스크린샷 패널 열기/닫기"
     }
   }
 }
