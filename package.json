@@ -1,0 +1,26 @@
+{
+  "name": "cdp-screenshot-extension",
+  "version": "0.1.0",
+  "description": "CDP-based screenshot tool: viewport, full-page and element capture. Environment-independent core with Chrome extension and Electron adapters.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gyuholee-dev/cdp-screenshot-extension.git"
+  },
+  "exports": {
+    "./core": "./core/index.js",
+    "./adapter-electron": "./adapter-electron/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "core",
+    "adapter-electron"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  }
+}
