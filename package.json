@@ -22,6 +22,7 @@
     "yarn": ">=1.22"
   },
   "scripts": {
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test \"test/**/*.test.js\"",
+    "serve": "python3 -m http.server 8080 --directory test/fixtures"
   }
 }

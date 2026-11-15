@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><title>오인하면 안 되는 요소</title>
+<style>
+body{margin:0;font:16px/1.5 sans-serif}
+.row{padding:8px 16px;border-bottom:1px solid #ccc}
+.fixedbox{height:120px;overflow:auto;border:2px solid #444;margin:8px}
+</style></head><body>
+<h3>이 페이지는 숨은 양이 없어야 한다(전체 = 화면 한 장)</h3>
+<div class="fixedbox" style="display:none" id="hidden-one"><div style="height:600px">display:none</div></div>
+<div style="display:contents;overflow:auto;height:50px" id="contents-one"><div class="row">display: contents 요소</div></div>
+<div style="height:0;overflow:auto" id="zero-one"><div style="height:400px">크기 0</div></div>
+<div style="visibility:hidden;height:100px;overflow:auto" id="invisible-one"><div style="height:400px">visibility:hidden</div></div></body></html>

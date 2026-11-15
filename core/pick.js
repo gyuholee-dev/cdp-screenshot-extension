@@ -21,6 +21,8 @@ export async function pickNode(cdp, options = {}) {
   try {
     await cdp.send('DOM.enable');
     await cdp.send('Overlay.enable');
+    // The overlay also paints a "WxH" viewport-size label on resize; it would end up in the shot.
+    try { await cdp.send('Overlay.setShowViewportSizeOnResize', { show: false }); } catch { /* older Chrome */ }
     const picked = new Promise((resolve, reject) => {
       offs.push(cdp.on('Overlay.inspectNodeRequested', (p) => resolve({ backendNodeId: p.backendNodeId })));
       offs.push(cdp.on('Overlay.inspectModeCanceled', () => reject(new CaptureError(ErrorCode.CANCELED, '요소 선택이 취소되었습니다.'))));
@@ -42,6 +44,7 @@ export async function pickNode(cdp, options = {}) {
     for (const [m, p] of [
       ['Overlay.setInspectMode', { mode: 'none', highlightConfig: {} }],
       ['Overlay.hideHighlight', {}],
+      ['Overlay.setShowViewportSizeOnResize', { show: true }],
       ['Overlay.disable', {}],
     ]) {
       try { await cdp.send(m, p); } catch { /* best effort */ }

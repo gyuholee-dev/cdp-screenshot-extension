@@ -29,16 +29,19 @@ export function scanScrollers(depth) {
   return state;
 }
 
-/** this = state. Remaining hidden height (px) over tracked scrollers. */
+/** this = state. Hidden height (px) per tracked scroller, plus sum and largest. */
 export function measureHidden() {
   let hidden = 0;
+  let max = 0;
   let remaining = 0;
+  const items = [];
   for (const el of this.scrollers) {
-    if (!el.isConnected) continue;
-    const h = el.scrollHeight - el.clientHeight;
-    if (h > 1) { hidden += h; remaining++; }
+    const h = el.isConnected ? el.scrollHeight - el.clientHeight : 0;
+    const v = h > 1 ? h : 0;
+    items.push(v);
+    if (v > 0) { hidden += v; remaining++; if (v > max) max = v; }
   }
-  return { hidden, remaining, total: this.scrollers.length };
+  return { hidden, max, remaining, total: this.scrollers.length, items };
 }
 
 /** this = state. Fallback: unfix size of scrollers that are still clipped; originals are saved. */

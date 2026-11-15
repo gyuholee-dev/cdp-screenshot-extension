@@ -1,6 +1,6 @@
 import { CaptureError, ErrorCode } from './errors.js';
-import { computeClip } from './geometry.js';
-import { expandScrollers } from './expand.js';
+import { computeClip, zoomOf } from './geometry.js';
+import { expandDocument, expandScrollers, fitViewportToClip } from './expand.js';
 import { pickNode } from './pick.js';
 import { assertWithinLimit, devicePixelRatio, normalizeOptions, runSession, screenshot } from './util.js';
 
@@ -25,19 +25,20 @@ export async function captureFull(cdp, options = {}) {
     opts.progress({ stage: 'expand' });
     const exp = await expandScrollers(cdp, result.objectId, opts, defer, dpr);
 
-    const m = await cdp.send('Page.getLayoutMetrics');
-    const content = m.cssContentSize ?? m.contentSize;
-    const view = m.cssLayoutViewport ?? m.layoutViewport;
-    const docHidden = content.height - view.clientHeight;
+    const doc = await expandDocument(cdp, opts, defer, dpr);
     opts.progress({ stage: 'capture' });
-    if (!exp.expanded && docHidden <= 1) return screenshot(cdp, opts);
+    if (!exp.expanded && !doc.grown) return screenshot(cdp, opts);
 
     // Horizontal scroll is out of scope for now: width = viewport width.
-    const clip = { x: 0, y: 0, width: view.clientWidth, height: Math.ceil(content.height), scale: 1 };
-    assertWithinLimit(clip.width * dpr, clip.height * dpr, opts.maxSidePixels);
+    // Stay inside the viewport: captureBeyondViewport repeats the first screen (doc-scroll fixture).
+    // Sizes are CSS px; the clip wants device-independent px (css * browser zoom).
+    const cssW = doc.viewW;
+    const cssH = Math.min(doc.contentH, doc.viewH);
+    assertWithinLimit(cssW * dpr, cssH * dpr, opts.maxSidePixels);
+    const clip = { x: 0, y: 0, width: Math.round(cssW * doc.zoom), height: Math.round(cssH * doc.zoom), scale: 1 };
     return screenshot(cdp, opts, { captureBeyondViewport: true, clip }, {
-      width: Math.round(clip.width * dpr),
-      height: Math.round(clip.height * dpr),
+      width: Math.round(cssW * dpr),
+      height: Math.round(cssH * dpr),
     });
   });
 }
@@ -76,15 +77,21 @@ export async function captureNode(cdp, target, options = {}) {
     const exp = await expandScrollers(cdp, object.objectId, opts, defer, dpr);
     if (exp.expanded) await cdp.send('DOM.scrollIntoViewIfNeeded', { backendNodeId });
 
-    const { model } = await cdp.send('DOM.getBoxModel', { backendNodeId });
-    const metrics = await cdp.send('Page.getLayoutMetrics');
-    const clip = computeClip(model, metrics);
-    assertWithinLimit(clip.width * dpr, clip.height * dpr, opts.maxSidePixels);
+    const measure = async () => {
+      const { model } = await cdp.send('DOM.getBoxModel', { backendNodeId });
+      const metrics = await cdp.send('Page.getLayoutMetrics');
+      return { metrics, clip: computeClip(model, metrics) };
+    };
+    const first = await measure();
+    const z = zoomOf(first.metrics);
+    // clip is in device-independent px; the limit is in device px = css * dpr
+    assertWithinLimit((first.clip.width / z) * dpr, (first.clip.height / z) * dpr, opts.maxSidePixels);
+    const clip = await fitViewportToClip(cdp, first.clip, first.metrics, measure, opts, defer, dpr);
 
     opts.progress({ stage: 'capture' });
     return screenshot(cdp, opts, { captureBeyondViewport: true, clip }, {
-      width: Math.round(clip.width * dpr),
-      height: Math.round(clip.height * dpr),
+      width: Math.round((clip.width / z) * dpr),
+      height: Math.round((clip.height / z) * dpr),
     });
   });
 }

@@ -28,3 +28,13 @@ export function computeClip(boxModel, metrics) {
   }
   return { x, y, width, height, scale: 1 };
 }
+
+/**
+ * Browser (page) zoom factor from Page.getLayoutMetrics. Screenshot clips are in device-independent
+ * pixels, layout sizes are in CSS pixels: dip = css * zoom, and device px = css * devicePixelRatio
+ * (window.devicePixelRatio already includes the zoom).
+ */
+export function zoomOf(metrics) {
+  const vv = metrics.cssVisualViewport ?? metrics.visualViewport ?? {};
+  return vv.zoom > 0 ? vv.zoom : 1;
+}
