@@ -1,7 +1,7 @@
 import { CaptureError, ErrorCode, fromCdpError } from './errors.js';
 
 export const DEFAULTS = Object.freeze({
-  depth: 3, // tentative default; see handoff §3
+  depth: 5, // default: apps often nest the scrolling area ~4 levels below <body> (mockup of the Ollama app: <main> at 4)
   format: 'png',
   quality: 90, // jpeg/webp only
   settleMs: 250,
