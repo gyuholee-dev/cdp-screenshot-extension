@@ -18,7 +18,8 @@
     "adapter-electron"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "yarn": ">=1.22"
   },
   "scripts": {
     "test": "node --test \"test/**/*.test.js\""

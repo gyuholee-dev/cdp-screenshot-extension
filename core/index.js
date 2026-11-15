@@ -1,3 +1,5 @@
 // Environment-independent capture core. No chrome.*, electron or DOM access.
-// Public API is added in stage 2 (see README).
-export {};
+export { captureViewport, captureFull, captureNode, captureElement } from './capture.js';
+export { pickNode } from './pick.js';
+export { CaptureError, ErrorCode } from './errors.js';
+export { DEFAULTS } from './util.js';
