@@ -117,6 +117,8 @@ li img { display: block; max-width: 100%; margin: 0 auto 10px; border-radius: 8p
 .meta .page { display: inline-flex; align-items: center; gap: 4px; min-width: 0; font-size: 0.8125rem; /* 13px: a little larger than the rest of the line */ color: inherit; text-decoration: none; transition: color 0.15s ease; }
 .meta .page svg { flex: none; }
 .meta .page__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fgroup__note a { color: inherit; text-decoration: none; transition: color 0.15s ease; } /* a link like the address of a card */
+.fgroup__note a:hover { color: var(--accent); }
 .meta a.page:hover { color: var(--accent); text-decoration: none; } /* the font turns blue, no underline */
 .meta .info { flex: none; white-space: nowrap; } /* its width is the kind + size line only */
 .meta .info .date { position: absolute; right: 0; bottom: 0; white-space: nowrap; }
@@ -142,16 +144,16 @@ li.new { animation: new-entry 1.4s ease-out; }
 .fgroup > .fld--note:last-child { padding-bottom: 0; }
 .fld--note .fld__label { display: flex; align-items: center; min-height: 30px; }
 .fld__note { flex: 0 0 100%; margin: 0; }
-.fld__group { display: flex; align-items: center; }
+.fld__group { display: flex; align-items: center; gap: 10px; }
 .fld--stack { display: block; padding: 10px 0 4px; min-height: 0; }
 .fld--stack:last-child { padding-bottom: 0; }
 .fld--stack .btns { margin-top: 8px; }
 /* the capture effects: one item = switch, note, CSS box and buttons; the line goes under the buttons */
-#effects .fld--note:has(+ .fld--stack) { border-bottom: 0; padding-bottom: 0; min-height: 0; } /* the CSS box sits close under its note */
+#effects .fld:has(+ .fld--stack) { border-bottom: 0; } /* the switch and its CSS box are one item */
+#effects .fld:has(+ .fld--stack) + .fld--stack { padding-top: 0; } /* the CSS box sits close under its switch */
 #effects .fld--stack:not(:last-child) { padding-bottom: 10px; border-bottom: 1px solid var(--row-line); }
 .fld--stack .sub { margin: 8px 0 0; }
-.err-msg { color: var(--err); }
-.err-msg:empty { display: none; } /* shown only while there is a message */
+
 /* a stacked field (as the app's path rows): the label, then the input with its button(s), then the note */
 .fld--stack > .fld__label { display: block; width: fit-content; margin: 0 0 6px; }
 .pr { display: flex; gap: 8px; }

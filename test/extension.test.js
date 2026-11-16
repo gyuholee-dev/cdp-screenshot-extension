@@ -131,6 +131,12 @@ test('readElementBox: the element\'s box on the screen now; null when it is off 
   assert.equal(await readElementBox(cdpWith(null, true), 5), null); // gone
 });
 
+test('formatBytes: B, KB, MB, GB the short way', async () => {
+  const { formatBytes } = await import('../extension/format.js');
+  assert.deepEqual([0, 512, 2048, 1536 * 1024, 3 * 1024 ** 3].map(formatBytes), ['0 B', '512 B', '2 KB', '1.5 MB', '3.0 GB']);
+  assert.equal(formatBytes(undefined), '0 B');
+});
+
 test('formatDate: 2026.11.16 16:42:30, 24 hours, padded, no spaces inside the date', async () => {
   const { formatDate } = await import('../extension/format.js');
   assert.equal(formatDate(new Date(2026, 10, 16, 16, 42, 30)), '2026.11.16 16:42:30');
@@ -350,4 +356,19 @@ test('focusTab: focuses the window, activates the tab, never throws', async () =
   const broken = { windows: { update: async () => { throw new Error('no window'); } }, tabs: { update: async () => {} } };
   assert.equal(await focusTab({ id: 4, windowId: 9 }, broken, 0), false);
   assert.equal(await focusTab(undefined, chrome, 0), true); // nothing to focus is not an error
+});
+
+test('capturable: Chrome\'s own pages and the web store are blocked, web and file pages are not', async () => {
+  const { isCapturableUrl, isTabCapturable } = await import('../extension/capturable.js');
+  for (const u of ['chrome://extensions/', 'chrome://newtab/', 'chrome-extension://abc/panel.html', 'devtools://devtools/bundled/x.html', 'view-source:https://a.com/', 'chrome-error://chromewebdata/', 'https://chromewebstore.google.com/detail/x', 'https://chrome.google.com/webstore/detail/x']) {
+    assert.equal(isCapturableUrl(u), false, u);
+  }
+  for (const u of ['http://192.168.50.22:9100/', 'https://example.com/', 'file:///tmp/a.html', 'about:blank', 'https://chrome.google.com/other', '', undefined]) {
+    assert.equal(isCapturableUrl(u), true, String(u));
+  }
+  const api = (targets) => ({ debugger: { getTargets: async () => targets } });
+  assert.equal(await isTabCapturable(3, api([{ type: 'page', tabId: 3, url: 'chrome://extensions/' }])), false);
+  assert.equal(await isTabCapturable(3, api([{ type: 'page', tabId: 3, url: 'https://a.com/' }, { type: 'page', tabId: 4, url: 'chrome://x/' }])), true);
+  assert.equal(await isTabCapturable(3, api([])), true); // unknown: let the capture decide
+  assert.equal(await isTabCapturable(3, { debugger: { getTargets: async () => { throw new Error('x'); } } }), true);
 });

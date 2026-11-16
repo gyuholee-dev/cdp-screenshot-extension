@@ -2,6 +2,7 @@ import { createChromeCdp, runCapture } from '../adapter-chrome/index.js';
 import { ErrorCode } from '../core/index.js';
 import { loadSettings } from './settings.js';
 import { t } from './i18n.js';
+import { isTabCapturable } from './capturable.js';
 import * as history from './history.js';
 import { saveBlob } from './save.js';
 import { focusTab } from './focus.js';
@@ -109,6 +110,11 @@ const deps = {
 async function capture(kind, tab, origin) {
   if (!tab?.id) throw Object.assign(new Error('No tab to capture.'), { code: 'NO_TAB' });
   if (busy.has(tab.id)) throw Object.assign(new Error('This tab is already being captured.'), { code: 'BUSY' });
+  if (!(await isTabCapturable(tab.id))) {
+    // Chrome's own pages: the shortcut and the menu do nothing, without a word (the panel's buttons are off there)
+    if (origin !== 'panel') return undefined;
+    throw Object.assign(new Error('This page cannot be captured.'), { code: ErrorCode.NOT_ATTACHABLE });
+  }
   busy.add(tab.id);
   const controller = guard.add(tab.id, tab.windowId);
   try {

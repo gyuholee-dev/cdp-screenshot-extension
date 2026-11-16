@@ -57,7 +57,7 @@ test('t(): message lookup, default-locale fallback, the key itself when missing,
 });
 
 test('errors: every code shown to the user has a description with what to do, the raw message is never shown', () => {
-  const codes = [...Object.values(ErrorCode).filter((c) => c !== 'CANCELED'), /* a cancel is silent */'NO_TAB', 'BUSY', 'NO_RESPONSE', 'UNKNOWN', 'SAVE', 'COPY', 'DELETE', 'EFFECT_TEST', 'FOLDER'];
+  const codes = [...Object.values(ErrorCode).filter((c) => c !== 'CANCELED'), /* a cancel is silent */'NO_TAB', 'BUSY', 'NO_RESPONSE', 'UNKNOWN', 'SAVE', 'COPY', 'DELETE', 'FOLDER'];
   use({});
   for (const c of codes) assert.ok(`error_${c}` in ko, `no description for ${c}`);
   assert.equal(describeError('TOO_LARGE'), ko.error_TOO_LARGE.message);

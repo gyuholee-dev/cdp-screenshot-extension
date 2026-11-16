@@ -6,9 +6,10 @@ import { AFTER_ACTIONS, EFFECT_DEFAULTS, SETTING_DEFAULTS, loadSettings, saveSet
 import { clearEntries, deleteEntry, kvGet, kvSet, listEntries, pruneExpired } from './history.js';
 import { buildFilename, saveBlob } from './save.js';
 import { copyImage } from './clipboard.js';
-import { formatDate } from './format.js';
+import { formatBytes, formatDate } from './format.js';
 import { applyDom, t } from './i18n.js';
 import { describeError } from './errors.js';
+import { isTabCapturable } from './capturable.js';
 
 const $ = (id) => document.getElementById(id);
 const STAGES = ['pick', 'expand', 'capture']; // progress stages: the text is t(`stage.${stage}`)
@@ -71,10 +72,21 @@ function hideStatus() {
   $('alert').inert = true;
 }
 
+let capturable = true; // the page of the active tab can be captured (not Chrome's own pages)
 function updateBusy() {
-  for (const b of document.querySelectorAll('.tools button')) b.disabled = running || pickActive;
+  for (const b of document.querySelectorAll('.tools button')) b.disabled = running || pickActive || !capturable;
+  for (const id of ['flashTest', 'edgeTest']) $(id).disabled = !capturable;
   $('cancel').hidden = !pickActive;
 }
+
+/** Looks at the active tab of this window again: on a page that cannot be captured the capture and test buttons are off. */
+async function refreshCapturable() {
+  const [tab] = await chrome.tabs.query({ active: true, windowId });
+  capturable = await isTabCapturable(tab?.id);
+  updateBusy();
+}
+let capturableTimer;
+const watchCapturable = () => { clearTimeout(capturableTimer); capturableTimer = setTimeout(refreshCapturable, 50); };
 
 function setRunning(value) {
   running = value;
@@ -171,6 +183,8 @@ async function refresh() {
   urls = [];
   $('list').replaceChildren(...entries.map((e, i) => renderItem(e, i)));
   $('empty').hidden = entries.length > 0;
+  // what the history holds: how many images and their total size
+  $('historyStats').textContent = t('clear.stats', { count: entries.length, size: formatBytes(entries.reduce((sum, e) => sum + (e.blob?.size ?? 0), 0)) });
   if (fresh.size) $('mainBody').scrollTo({ top: 0 }); // the new entry is at the top
   fresh.clear();
 }
@@ -379,9 +393,8 @@ function bindSettings() {
 
   // test buttons play the effect with what is typed now (saved or not) on the page being viewed
   const testEffect = (which) => async () => {
-    $('effectMsg').textContent = '';
     const res = await chrome.runtime.sendMessage({ target: 'worker', type: 'effect-test', windowId, which, css: $(`${which}Css`).value });
-    if (!res?.ok) $('effectMsg').textContent = describeError(res?.code ?? 'NO_RESPONSE');
+    if (!res?.ok) console.warn('[cdp-screenshot] effect test failed:', res?.code); // nothing is shown on the page of settings (the worker logged the cause)
   };
   $('flashTest').addEventListener('click', testEffect('flash'));
   $('edgeTest').addEventListener('click', testEffect('edge'));
@@ -424,6 +437,10 @@ async function init() {
   fillSettings();
   bindSettings();
   await renderFolder();
+  refreshCapturable();
+  chrome.tabs.onActivated.addListener(watchCapturable); // another tab, a navigation, another window
+  chrome.tabs.onUpdated.addListener(watchCapturable);
+  chrome.windows.onFocusChanged.addListener(watchCapturable);
   for (const b of document.querySelectorAll('.tools button')) b.addEventListener('click', () => startCapture(b.dataset.kind));
   // Esc or the Cancel button: the page does not get the key (the panel has the focus), so cancel through the worker
   const cancelPick = () => { if (pickActive) chrome.runtime.sendMessage({ target: 'worker', type: 'cancel', windowId }); };
@@ -434,6 +451,11 @@ async function init() {
   // a click anywhere in the panel is leaving the page too, whether or not the panel's focus event fires
   document.addEventListener('pointerdown', () => { if (pickActive) chrome.runtime.sendMessage({ target: 'worker', type: 'panel-activity', windowId }).catch(() => {}); }, true);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cancelPick(); });
+  // chrome:// pages cannot be opened by a link of an extension page: the click opens the tab
+  $('shortcutsLink')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+  });
   $('toSettings').addEventListener('click', () => showView('settings'));
   $('toMain').addEventListener('click', () => showView('main'));
   showView('main', false);

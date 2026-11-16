@@ -83,7 +83,6 @@
             <button id="allowFolder" hidden data-i18n="folder.allow"></button>
             <button id="pickFolder" data-i18n="folder.pick"></button>
           </div>
-          <p class="fld__note sub" data-i18n="folder.note"></p>
         </div>
       </section>
 
@@ -101,7 +100,7 @@
         </div>
         <div class="fld">
           <span class="fld__label" data-i18n="clear.label"></span>
-          <button id="clearAll" class="small" data-i18n="clear.button"></button>
+          <span class="fld__group"><span id="historyStats" class="sub"></span><button id="clearAll" class="small" data-i18n="clear.button"></button></span>
         </div>
       </section>
 
@@ -110,37 +109,33 @@
           <h2 class="fgroup__title" data-i18n="group.effects"></h2>
           <p class="fgroup__note sub" data-i18n-html="effects.note"></p>
         </div>
-        <div class="fld fld--note">
+        <div class="fld">
           <label class="fld__label" for="flashOn" data-i18n="flash.label"></label>
           <input type="checkbox" id="flashOn" class="sw">
-          <p class="fld__note sub" data-i18n="flash.note"></p>
         </div>
         <div class="fld fld--stack">
           <textarea id="flashCss" class="fld__box" rows="2" spellcheck="false" data-i18n-aria-label="flash.cssLabel"></textarea>
           <div class="btns"><button id="flashTest" data-i18n="flash.test"></button><button id="flashReset" data-i18n="effects.reset"></button></div>
         </div>
-        <div class="fld fld--note">
+        <div class="fld">
           <label class="fld__label" for="edgeOn" data-i18n="edge.label"></label>
           <input type="checkbox" id="edgeOn" class="sw">
-          <p class="fld__note sub" data-i18n="edge.note"></p>
         </div>
         <div class="fld fld--stack">
           <textarea id="edgeCss" class="fld__box" rows="3" spellcheck="false" data-i18n-aria-label="edge.cssLabel"></textarea>
           <div class="btns"><button id="edgeTest" data-i18n="edge.test"></button><button id="edgeReset" data-i18n="effects.reset"></button></div>
-          <p id="effectMsg" class="sub err-msg" role="status"></p>
         </div>
       </section>
 
       <section class="fgroup box">
-        <div class="fgroup__head"><h2 class="fgroup__title" data-i18n="group.shortcuts"></h2></div>
+        <div class="fgroup__head">
+          <h2 class="fgroup__title" data-i18n="group.shortcuts"></h2>
+          <p class="fgroup__note sub" data-i18n-html="shortcuts.note"></p>
+        </div>
         <div class="fld"><span class="fld__label" data-i18n="capture.viewport"></span><kbd>Alt+Shift+1</kbd></div>
         <div class="fld"><span class="fld__label" data-i18n="capture.full"></span><kbd>Alt+Shift+2</kbd></div>
         <div class="fld"><span class="fld__label" data-i18n="capture.element"></span><kbd>Alt+Shift+3</kbd></div>
-        <div class="fld fld--note">
-          <span class="fld__label" data-i18n="shortcut.panel"></span>
-          <kbd>Alt+Shift+S</kbd>
-          <p class="fld__note sub" data-i18n-html="shortcuts.note"></p>
-        </div>
+        <div class="fld"><span class="fld__label" data-i18n="shortcut.panel"></span><kbd>Alt+Shift+S</kbd></div>
       </section>
     </main>
 

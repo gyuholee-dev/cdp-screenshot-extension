@@ -1,9 +1,9 @@
 {
   "effects_note": {
-    "message": "캡처가 끝났음을 알려 주는 화면 효과입니다. 각 효과의 모양은 CSS 속성만 적어서 바꿀 수 있습니다 (예: <code>background: #fff;</code>). 효과는 페이지 위에 겹쳐 보일 뿐 클릭을 막지 않으며, 캡처에 실패했을 때의 효과는 항상 빨간색입니다."
+    "message": "캡처 완료시 표시되는 화면 효과를 CSS 속성값으로 입력하여 사용자 지정할 수 있습니다. 값을 변경할 경우 반드시 테스트로 확인하길 권장합니다."
   },
   "shortcuts_note": {
-    "message": "단축키는 <code>chrome://extensions/shortcuts</code>에서 바꿀 수 있습니다. 페이지에서 오른쪽 클릭하면 나오는 메뉴 (CDP Screenshot)로도 같은 캡처를 할 수 있습니다. 캡처한 이미지는 이 패널의 기록에 쌓입니다."
+    "message": "<a href=\"chrome://extensions/shortcuts\" id=\"shortcutsLink\">chrome://extensions/shortcuts</a> 에서 단축키를 사용자 지정할 수 있습니다."
   },
   "footer_save": {
     "message": "저장"
@@ -30,25 +30,22 @@
     "message": "비우기"
   },
   "clear_label": {
-    "message": "기록 관리"
+    "message": "보관된 기록"
   },
   "retention_note": {
-    "message": "캡처 기록을 보관하는 기간 (일)입니다. 이 기간이 지난 기록은 자동으로 지워지며, 0으로 두면 직접 비우기 전까지 계속 보관합니다."
+    "message": "캡처 기록을 보관하는 기간(일)입니다. 0으로 설정할 경우 직접 삭제하기 전까지는 무기한 보관됩니다."
   },
   "retention_label": {
     "message": "기록 보관 일수"
   },
-  "imageSize_note": {
-    "message": "기록 카드에 보이는 이미지 (썸네일)의 가로 크기입니다 (256~1024px). 카드 전체 너비는 이 값보다 30px 더 넓고, 패널이 이보다 좁으면 패널 너비에 맞춰 줄어듭니다."
-  },
   "imageSize_label": {
     "message": "썸네일 사이즈"
   },
+  "imageSize_note": {
+    "message": "캡처 기록 썸네일의 최대 너비(px)입니다. 최소 256px 부터 최대 1024px 까지 설정할수 있습니다."
+  },
   "group_history": {
     "message": "기록"
-  },
-  "folder_note": {
-    "message": "이미지를 저장할 폴더입니다. 고르지 않으면 Chrome의 다운로드 폴더에 저장됩니다. 브라우저를 다시 시작하면 고른 폴더에 대한 접근을 다시 허용해야 할 수 있습니다."
   },
   "folder_pick": {
     "message": "찾아보기"
@@ -60,7 +57,7 @@
     "message": "파일 저장 경로"
   },
   "afterAction_note": {
-    "message": "캡처한 뒤 이미지를 어떻게 할지 정합니다. 어느 쪽을 고르든 기록에는 남습니다. 클립보드에는 자동으로 복사되지 않으니, 필요하면 기록 카드의 복사 버튼을 누르세요."
+    "message": "캡처 완료된 이미지를 어떻게 처리할지 설정합니다. 저장으로 설정할 경우 지정된 경로에 이미지 파일이 자동으로 저장됩니다."
   },
   "afterAction_history": {
     "message": "기록에만 남기기"
@@ -69,7 +66,7 @@
     "message": "지정한 폴더에 저장"
   },
   "afterAction_label": {
-    "message": "촬영 후 동작"
+    "message": "캡처 후 동작"
   },
   "group_save": {
     "message": "저장"
@@ -80,17 +77,11 @@
   "edge_test": {
     "message": "테스트"
   },
-  "edge_note": {
-    "message": "캡처가 끝났음을 화면 가장자리가 빛나서 알려 주는 효과입니다."
-  },
   "edge_label": {
     "message": "가장자리 강조"
   },
   "flash_test": {
     "message": "테스트"
-  },
-  "flash_note": {
-    "message": "캡처가 끝났음을 화면 전체가 번쩍여서 알려 주는 효과입니다."
   },
   "flash_label": {
     "message": "플래시"
@@ -99,7 +90,7 @@
     "message": "캡처 효과"
   },
   "settle_note": {
-    "message": "캡처하기 직전에 기다리는 시간입니다 (단위: ms, 1000ms = 1초). 늦게 나타나는 이미지나 애니메이션이 캡처에서 빠지면 값을 늘리세요. 값이 클수록 캡처가 느려집니다."
+    "message": "캡처를 실행하기 전 지연시키는 시간(ms)입니다. 늦게 로딩되는 이미지나 애니메이션이 캡처 결과에서 잘릴 경우 값을 높게 설정하세요."
   },
   "settle_label": {
     "message": "캡처 지연시간"
@@ -108,7 +99,7 @@
     "message": "이미지 형식"
   },
   "depth_note": {
-    "message": "페이지 안에서 스크롤 영역을 찾는 단계 수입니다. 앱처럼 스크롤 영역이 여러 겹이라 전체 캡처가 잘리면 값을 올리세요."
+    "message": "캡처 타겟에서 스크롤 영역을 탐색하는 깊이입니다. 스크롤 영역이 여러 겹 겹쳐 스크롤 캡처 결과가 잘릴 경우 깊이 값을 높게 설정하세요."
   },
   "depth_label": {
     "message": "스크롤 탐색 깊이"
@@ -266,10 +257,10 @@
   "error_DELETE": {
     "message": "기록을 지우지 못했습니다. 다시 시도해 주세요."
   },
-  "error_EFFECT_TEST": {
-    "message": "효과를 보여주지 못했습니다. 웹 페이지가 열린 탭을 보고 있는지 확인해 주세요."
-  },
   "error_FOLDER": {
     "message": "폴더를 선택하지 못했습니다. 다시 시도해 주세요."
+  },
+  "clear_stats": {
+    "message": "스크린샷 {count}개 · {size}"
   }
 }
