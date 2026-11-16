@@ -11,9 +11,7 @@ import { CaptureError, ErrorCode } from '../core/index.js';
 const root = new URL('../', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', root), 'utf8'));
 // chrome.i18n stand-in: the texts of the default locale (the tests below match the Korean words)
-// (Korean is held out of _locales for now, so that Chrome shows English: locales-hold/ko)
-const koFile = new URL('locales-hold/ko/messages.json', root);
-const koMessages = JSON.parse(readFileSync(existsSync(koFile) ? koFile : new URL('_locales/ko/messages.json', root), 'utf8'));
+const koMessages = JSON.parse(readFileSync(new URL('_locales/ko/messages.json', root), 'utf8'));
 globalThis.chrome ??= {};
 globalThis.chrome.i18n = { getMessage: (k) => koMessages[k]?.message ?? '', getUILanguage: () => 'ko' };
 

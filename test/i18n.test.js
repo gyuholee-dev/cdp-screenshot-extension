@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { t } from '../extension/i18n.js';
 import { describeError } from '../extension/errors.js';
 import { ErrorCode } from '../core/index.js';
@@ -8,11 +8,7 @@ import { ErrorCode } from '../core/index.js';
 const root = new URL('../', import.meta.url);
 const dir = new URL('extension/', root);
 const read = (f) => readFileSync(new URL(f, dir), 'utf8');
-// (Korean is held out of _locales for now, so that Chrome shows English: locales-hold/ko)
-const messages = (lang) => {
-  const held = new URL(`locales-hold/${lang}/messages.json`, root);
-  return JSON.parse(readFileSync(existsSync(held) ? held : new URL(`_locales/${lang}/messages.json`, root), 'utf8'));
-};
+const messages = (lang) => JSON.parse(readFileSync(new URL(`_locales/${lang}/messages.json`, root), 'utf8'));
 const en = messages('en'); // the default locale: the complete set the other languages are compared with
 const ko = messages('ko');
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', root), 'utf8'));
@@ -25,8 +21,7 @@ const use = (table) => { globalThis.chrome = { i18n: { getMessage: (k) => (table
 test('the default locale exists, and every other language under _locales has the same keys and {placeholders}', () => {
   assert.equal(manifest.default_locale, 'en');
   for (const [k, v] of Object.entries(en)) assert.ok(v.message, `${k}: empty`);
-  const held = existsSync(new URL('locales-hold/', root)) ? readdirSync(new URL('locales-hold/', root)) : [];
-  for (const lang of [...readdirSync(new URL('_locales/', root)), ...held].filter((l) => l !== 'en')) {
+  for (const lang of readdirSync(new URL('_locales/', root)).filter((l) => l !== 'en')) {
     const other = messages(lang);
     assert.deepEqual(Object.keys(other).sort(), Object.keys(en).sort(), lang);
     for (const k of Object.keys(en)) assert.deepEqual(params(other[k].message), params(en[k].message), `${lang} ${k}`);
