@@ -67,7 +67,18 @@ async function playEffect(cdp, variant, effects) {
   });
 }
 
-async function showEffect({ cdp, ok, error }) {
+/**
+ * Which page was shot, read through the capture's own connection: the tab object has no address
+ * (or title) without a tabs permission, except for a tab the user just invoked the extension on, so
+ * it would be there for a shot started from the menu and missing for one started from the panel.
+ */
+async function readPage(cdp) {
+  const r = await cdp.send('Runtime.evaluate', { expression: '({ url: location.href, title: document.title })', returnByValue: true });
+  return r?.result?.value;
+}
+
+async function showEffect({ cdp, ok, error, result }) {
+  if (ok && result) { try { result.page = await readPage(cdp); } catch { /* the entry then has no address */ } }
   if (!ok && error?.code === ErrorCode.CANCELED) return; // an Esc is not an event worth flashing
   await playEffect(cdp, ok ? 'ok' : 'error', (await loadSettings()).effects);
 }
@@ -100,7 +111,7 @@ async function capture(kind, tab, origin) {
   } finally {
     busy.delete(tab.id);
     guard.remove(tab.id);
-    deps.notifyPanel({ type: 'capture-ended', windowId: tab.windowId }); // done, failed or cancelled: drop "pick an element"
+    deps.notifyPanel({ type: 'capture-ended', kind, windowId: tab.windowId }); // done, failed or cancelled: drop "pick an element"
   }
 }
 
@@ -166,7 +177,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     const [tab] = await chrome.tabs.query({ active: true, windowId: msg.windowId });
     return capture(msg.kind, tab, 'panel');
   })().then(
-    ({ id, ms }) => sendResponse({ ok: true, id, ms }),
+    ({ id, ms, saveError }) => sendResponse({ ok: true, id, ms, saveError }),
     (e) => {
       logFailure(e);
       sendResponse({ ok: false, code: e?.code ?? 'UNKNOWN', message: e?.message ?? String(e) });

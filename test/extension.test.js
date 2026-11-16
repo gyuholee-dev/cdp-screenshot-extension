@@ -44,7 +44,7 @@ test('normalizeSettings: defaults and coercion', () => {
   assert.deepEqual(normalizeSettings(), SETTING_DEFAULTS);
   assert.deepEqual(
     normalizeSettings({ depth: '2', format: 'jpeg', settleMs: '500', afterAction: 'save', retentionDays: '7' }),
-    { depth: 2, format: 'jpeg', settleMs: 500, afterAction: 'save', retentionDays: 7, effects: SETTING_DEFAULTS.effects },
+    { depth: 2, format: 'jpeg', settleMs: 500, afterAction: 'save', retentionDays: 7, historyImageSize: 330, effects: SETTING_DEFAULTS.effects },
   );
   assert.deepEqual(normalizeSettings({ depth: -1, format: 'gif', settleMs: 'x', afterAction: 'cloud', retentionDays: -3 }), SETTING_DEFAULTS);
   assert.equal(normalizeSettings({ depth: 1.5 }).depth, SETTING_DEFAULTS.depth);
@@ -69,6 +69,17 @@ test('normalizeSettings: a saved earlier default edge style follows the new defa
   assert.equal(normalizeSettings({ effects: { edge: { enabled: true, css: old } } }).effects.edge.css, SETTING_DEFAULTS.effects.edge.css);
   assert.match(SETTING_DEFAULTS.effects.edge.css, /inset 0 0 0 2px .* 18px 4px/);
   assert.equal(normalizeSettings({ effects: { edge: { css: 'outline: 3px solid red;' } } }).effects.edge.css, 'outline: 3px solid red;');
+});
+
+test('normalizeSettings: the history image size is a whole number from 256 to 1024', () => {
+  assert.equal(SETTING_DEFAULTS.historyImageSize, 330);
+  assert.equal(normalizeSettings().historyImageSize, 330);
+  assert.equal(normalizeSettings({ historyImageSize: '512' }).historyImageSize, 512);
+  assert.equal(normalizeSettings({ historyImageSize: 100 }).historyImageSize, 256); // below the range: the smallest
+  assert.equal(normalizeSettings({ historyImageSize: 5000 }).historyImageSize, 1024); // above: the largest
+  assert.equal(normalizeSettings({ historyImageSize: 300.6 }).historyImageSize, 301);
+  assert.equal(normalizeSettings({ historyImageSize: 'x' }).historyImageSize, 330);
+  assert.equal(normalizeSettings({ historyImageSize: '' }).historyImageSize, 330);
 });
 
 test('normalizeSettings: values of earlier builds are converted (copying is no longer automatic)', () => {
@@ -200,6 +211,7 @@ test('captureFlow: "save" stores the shot and writes the result onto the entry',
   const failing = flowDeps({ settings: { afterAction: 'save' }, deps: { saveBlob: async () => { throw new Error('disk full'); } } });
   const f = await captureFlow({ kind: 'full', tab: { id: 5 }, origin: 'panel' }, failing);
   assert.match(f.note, /저장 실패: disk full/); // the shot is kept in the history anyway
+  assert.equal(f.saveError, 'disk full'); // and the panel is told
   assert.equal(failing.entries.get('e1').note, f.note);
 });
 
@@ -259,6 +271,15 @@ test('captureFlow hands the cancel signal to the capture', async () => {
   const d = flowDeps({ deps: { runCapture: async (_id, _kind, opts) => { seen = opts.signal; return { bytes: new Uint8Array([1]), mime: 'image/png', width: 1, height: 1 }; } } });
   await captureFlow({ kind: 'element', tab: { id: 1 }, origin: 'panel', signal: ctrl.signal }, d);
   assert.equal(seen, ctrl.signal);
+});
+
+test('captureFlow: the page address comes from the capture whoever started it, not from the tab object', async () => {
+  for (const tab of [{ id: 1 }, { id: 1, url: 'http://tab-object/' }]) { // (the tab has an address only after a menu click)
+    const d = flowDeps({ deps: { runCapture: async () => ({ bytes: new Uint8Array([1]), mime: 'image/png', width: 1, height: 1, page: { url: 'http://192.168.50.22:9100/#monitor=1', title: 'worker-1 모니터' } }) } });
+    await captureFlow({ kind: 'viewport', tab, origin: 'panel' }, d);
+    assert.equal(d.entries.get('e1').pageUrl, 'http://192.168.50.22:9100/#monitor=1');
+    assert.equal(d.entries.get('e1').pageTitle, 'worker-1 모니터');
+  }
 });
 
 test('captureFlow reports how long the capture took', async () => {

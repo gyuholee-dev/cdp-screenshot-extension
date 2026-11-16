@@ -37,12 +37,17 @@ function normalizeEffect(raw, def) {
   };
 }
 
+/** The width a history card shows its image at (px): the card's own maximum width follows from it. */
+export const HISTORY_IMAGE_MIN = 256;
+export const HISTORY_IMAGE_MAX = 1024;
+
 export const SETTING_DEFAULTS = Object.freeze({
   depth: DEFAULTS.depth,
   format: DEFAULTS.format,
   settleMs: DEFAULTS.settleMs,
   afterAction: 'history',
   retentionDays: 30, // 0 = keep until cleared by hand
+  historyImageSize: 330, // a card is this + its padding and border (30px) = 360px at most
   effects: EFFECT_DEFAULTS,
 });
 
@@ -53,12 +58,16 @@ export function normalizeSettings(raw = {}) {
   const settleMs = Number(r.settleMs);
   const retentionDays = Number(r.retentionDays);
   const afterAction = LEGACY_AFTER_ACTIONS[r.afterAction] ?? r.afterAction;
+  const imageSize = Number(r.historyImageSize);
   return {
     depth: Number.isInteger(depth) && depth >= 0 ? depth : SETTING_DEFAULTS.depth,
     format: FORMATS.includes(r.format) ? r.format : SETTING_DEFAULTS.format,
     settleMs: Number.isFinite(settleMs) && settleMs >= 0 ? Math.round(settleMs) : SETTING_DEFAULTS.settleMs,
     afterAction: AFTER_ACTIONS.includes(afterAction) ? afterAction : SETTING_DEFAULTS.afterAction,
     retentionDays: Number.isInteger(retentionDays) && retentionDays >= 0 ? retentionDays : SETTING_DEFAULTS.retentionDays,
+    historyImageSize: Number.isFinite(imageSize) && r.historyImageSize !== '' && r.historyImageSize != null
+      ? Math.min(HISTORY_IMAGE_MAX, Math.max(HISTORY_IMAGE_MIN, Math.round(imageSize)))
+      : SETTING_DEFAULTS.historyImageSize,
     effects: {
       flash: normalizeEffect(r.effects?.flash, EFFECT_DEFAULTS.flash),
       edge: normalizeEffect(r.effects?.edge, EFFECT_DEFAULTS.edge),

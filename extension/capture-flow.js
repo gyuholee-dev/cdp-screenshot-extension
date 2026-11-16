@@ -24,7 +24,7 @@ export async function captureFlow({ kind, tab, origin, signal }, deps) {
       format: settings.format,
       settleMs: settings.settleMs,
       signal, // lets the host cancel an element pick (the key press may go to the host's UI, not to the page)
-      reportProgress: ({ stage }) => notifyPanel({ type: 'progress', stage, windowId: tab.windowId }),
+      reportProgress: ({ stage }) => notifyPanel({ type: 'progress', stage, kind, windowId: tab.windowId }),
     });
 
     const blob = new Blob([result.bytes], { type: result.mime });
@@ -34,25 +34,28 @@ export async function captureFlow({ kind, tab, origin, signal }, deps) {
       height: result.height,
       mime: result.mime,
       blob,
-      pageUrl: tab.url ?? '',
-      pageTitle: tab.title ?? '',
+      // the same whoever started it: the page as read through the capture's connection
+      pageUrl: result.page?.url ?? tab.url ?? '',
+      pageTitle: result.page?.title ?? tab.title ?? '',
     });
 
     let note = '';
+    let saveError; // set when the automatic save failed: the panel tells it
     if (settings.afterAction === 'save') {
       try {
         const saved = await saveBlob(blob, buildFilename(kind, result.mime, new Date(entry.createdAt)), { dirHandle: await getDirHandle() });
         note = `저장됨: ${saved.path}${saved.note ? `\n${saved.note}` : ''}`;
       } catch (e) {
-        note = `저장 실패: ${e?.message ?? e}`;
+        saveError = e?.message ?? String(e);
+        note = `저장 실패: ${saveError}`;
       }
       await history.updateEntry(entry.id, { note });
     }
     await history.pruneExpired(settings.retentionDays);
     const ms = now() - started;
     // The same details whatever started the capture: the panel words its message from them.
-    notifyPanel({ type: 'history-changed', id: entry.id, kind, width: result.width, height: result.height, ms });
-    return { id: entry.id, note, ms };
+    notifyPanel({ type: 'history-changed', id: entry.id, kind, width: result.width, height: result.height, ms, saveError });
+    return { id: entry.id, note, ms, saveError };
   } catch (e) {
     // A capture that was not started from the panel has no one waiting for an answer: tell the panel
     // (the panel's own button gets the error as its answer). A cancel is not a failure.

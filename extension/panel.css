@@ -48,14 +48,17 @@ code { font-size: 0.75rem; color: var(--sub); }
 
 /* controls */
 button, input, select, textarea { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; }
-button { cursor: pointer; background: var(--btn); }
+button { cursor: pointer; background: var(--btn); transition: background-color 0.15s ease, outline-color 0.15s; }
 button:hover { background: light-dark(#cbcbcb, color-mix(in srgb, var(--btn) 50%, var(--surf))); }
 button:active { background: light-dark(#bcbcbc, color-mix(in srgb, var(--btn) 25%, var(--surf))); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button:disabled:hover, button:disabled:active { background: var(--btn); }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primary:hover { background: light-dark(color-mix(in srgb, var(--accent) 95%, #000), color-mix(in srgb, var(--accent) 52%, #000)); }
-button.danger { color: var(--err); }
+/* a button in its transient "done" state (just copied or deleted): the accent colour as the background, never as the font colour */
+button.done:disabled { opacity: 1; } /* the capture button at work stays bright while the others are dimmed */
+button.done, button.done:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.removing, button.removing:hover { background: #e6242a; border-color: #e6242a; color: #fff; } /* a delete: red as the background, like the alert's failure */
 /* an icon alone: no fill, no border, a fill under the pointer */
 button.inline { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; padding: 0; border: 0; background: none; font-size: 0.75rem; }
 button.inline:hover, button.inline:active { background: var(--fill-hover); }
@@ -70,7 +73,7 @@ button.inline:hover, button.inline:active { background: var(--fill-hover); }
 .views--slide > .views__track { transition: transform 0.3s ease; }
 @media (prefers-reduced-motion: reduce) { .views--slide > .views__track { transition: none; } }
 .view { flex: 0 0 50%; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.hdr { flex: none; display: flex; align-items: center; gap: 8px; height: var(--header-h); padding: 0 12px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.hdr { position: relative; z-index: 2; /* above the alert area, which slides out from behind it */ flex: none; display: flex; align-items: center; gap: 8px; height: var(--header-h); padding: 0 12px; background: var(--bg); border-bottom: 1px solid var(--line); }
 .hdr button { height: 30px; }
 .hdr h1 { margin-left: 2px; }
 .tools { display: flex; gap: 8px; flex: 1 1 auto; min-width: 0; }
@@ -81,40 +84,44 @@ button.sq { flex: none; display: inline-flex; align-items: center; justify-conte
 .view > footer .sub { margin-right: auto; }
 
 /* main view */
-/* the alert area (알림 영역): where the status and the cancel button of a capture show. It is not there
+/* the alert area (알림 영역): where the status and the cancel button of a capture show. It sits between the
+   header and the scrolling body, so it is seen however far the list is scrolled. It is not there
    while nothing happens: it slides down from the top when a message comes (the list below moves with
    it) and slides away when the message is gone. Accent colour behind white text so it is noticed at
    once; a failure turns it red. */
-.alert { display: grid; grid-template-rows: 0fr; margin: 0; transition: grid-template-rows 0.25s ease, margin 0.25s ease; }
-.alert.show { grid-template-rows: 1fr; margin: 0 0 12px; }
-.alert__inner { min-height: 0; overflow: hidden; }
-.statusrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 46px; padding: 8px 12px; border-radius: 8px; background: var(--btn); color: var(--sub); transform: translateY(-100%); opacity: 0; transition: transform 0.25s ease, opacity 0.25s ease, background-color 0.2s, color 0.2s; }
-.alert.show .statusrow { transform: none; opacity: 1; }
+.alert { position: relative; z-index: 1; flex: none; display: grid; grid-template-rows: 0fr; padding: 0 12px; transition: grid-template-rows 0.25s ease; }
+.alert.show { grid-template-rows: 1fr; }
+.alert__inner { min-height: 0; } /* (not clipped: the row keeps its whole shape and comes out from behind the header) */
+.statusrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 46px; margin-top: 12px; padding: 8px 12px; border-radius: 8px; background: var(--btn); color: var(--sub); transform: translateY(calc(-100% - 12px)); transition: transform 0.25s ease, background-color 0.2s, color 0.2s; }
+.alert.show .statusrow { transform: none; }
 .statusrow.busy, .statusrow.ok { background: var(--accent); color: #fff; }
-.statusrow.err { background: var(--err); color: #fff; }
+.statusrow.err { background: #e6242a; color: #fff; } /* a vivid red, near the primary colour */
 .statusrow button { flex: none; background: rgba(0, 0, 0, 0.32); border-color: transparent; color: #fff; }
 .statusrow button:hover:not(:disabled) { background: rgba(0, 0, 0, 0.5); }
 .statusrow button:active:not(:disabled) { background: rgba(0, 0, 0, 0.5); }
-#status { margin: 0; color: inherit; }
+#status { margin: 0; color: inherit; white-space: pre-line; }
 @media (prefers-reduced-motion: reduce) { .alert, .statusrow { transition: none; } }
 ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
-li { --surf: var(--card); background: var(--box); border: 1px solid transparent; border-radius: 12px; padding: 14px; }
-li.latest { border-color: var(--accent); }
+/* a history card (내역 카드): no border until the pointer is over it (grey) or it was just copied (accent) */
+li { max-width: calc(var(--history-img, 330px) + 30px); /* the image width of the setting + padding 2x14 + border 2x1 */ width: 100%; align-self: center; --surf: var(--card); background: var(--box); border: 1px solid transparent; border-radius: 12px; padding: 14px; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+li:hover { border-color: var(--line); } /* the colour of the header's bottom line */
+/* the pointer over Copy, Save (blue) or Delete (red) of a card emphasises the card's border ; the buttons keep their look */
+li:has(button.act-accent:hover:not(:disabled)) { border-color: var(--accent); }
+li:has(button.act-delete:hover:not(:disabled)) { border-color: #e6242a; }
+li.done { border-color: var(--accent); box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent) 25%, transparent); }
+li.removing { border-color: #e6242a; box-shadow: 0 0 4px 1px color-mix(in srgb, #e6242a 25%, transparent); }
 li img { display: block; max-width: 100%; margin: 0 auto 10px; border-radius: 8px; background: var(--field); }
 .meta { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 0.75rem; color: var(--sub); }
-.meta .page { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta .page { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta .info { flex: none; white-space: nowrap; }
 .actions { display: flex; gap: 8px; align-items: center; }
 .actions .spacer { flex: 1; }
-.note { margin-top: 8px; font-size: 0.75rem; color: var(--sub); white-space: pre-line; }
-.note.err { color: var(--err); }
-.note.ok { color: var(--accent); }
-li button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 li.new { animation: new-entry 1.4s ease-out; }
 @keyframes new-entry {
   0% { background: color-mix(in srgb, var(--accent) 30%, var(--box)); }
   100% { background: var(--box); }
 }
-@media (prefers-reduced-motion: reduce) { li.new { animation: none; } }
+@media (prefers-reduced-motion: reduce) { li.new { animation: none; } li, button { transition: none; } }
 
 /* settings: boxes of rows */
 .box { margin: 0 0 12px; padding: 14px; border-radius: 12px; background: var(--box); --surf: var(--card); }
