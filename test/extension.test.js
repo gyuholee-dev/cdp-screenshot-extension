@@ -99,6 +99,13 @@ test('load/save settings through chrome.storage.local', async () => {
   assert.equal((await loadSettings(chrome)).depth, 4);
 });
 
+test('formatDate: 2026.11.16 16:42:30, 24 hours, padded, no spaces inside the date', async () => {
+  const { formatDate } = await import('../extension/format.js');
+  assert.equal(formatDate(new Date(2026, 10, 16, 16, 42, 30)), '2026.11.16 16:42:30');
+  assert.equal(formatDate(new Date(2026, 0, 5, 9, 3, 7)), '2026.01.05 09:03:07');
+  assert.equal(formatDate(new Date(2026, 11, 31, 0, 0, 0)), '2026.12.31 00:00:00');
+});
+
 test('buildFilename', () => {
   assert.equal(buildFilename('full', 'image/jpeg', new Date(2026, 10, 15, 9, 5, 3)), 'screenshot-full-20261115-090503.jpg');
   assert.equal(buildFilename('viewport', 'image/png', new Date(2026, 10, 15, 9, 5, 3)), 'screenshot-viewport-20261115-090503.png');

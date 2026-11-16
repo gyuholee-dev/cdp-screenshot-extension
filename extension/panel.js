@@ -6,6 +6,7 @@ import { AFTER_ACTIONS, EFFECT_DEFAULTS, SETTING_DEFAULTS, loadSettings, saveSet
 import { clearEntries, deleteEntry, kvDelete, kvGet, kvSet, listEntries, pruneExpired } from './history.js';
 import { buildFilename, saveBlob } from './save.js';
 import { copyImage } from './clipboard.js';
+import { formatDate } from './format.js';
 
 const $ = (id) => document.getElementById(id);
 const KINDS = { viewport: '화면 캡처', full: '전체 캡처', element: '요소 캡처' };
@@ -143,7 +144,7 @@ function renderItem(e, index) {
   size.textContent = `${KIND_SHORT[e.kind] ?? e.kind} · ${e.width}×${e.height}px`;
   const date = document.createElement('span');
   date.className = 'date';
-  date.textContent = new Date(e.createdAt).toLocaleString();
+  date.textContent = formatDate(e.createdAt);
   info.append(size, date);
   meta.append(page, info);
 
