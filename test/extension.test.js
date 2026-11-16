@@ -99,6 +99,34 @@ test('load/save settings through chrome.storage.local', async () => {
   assert.equal((await loadSettings(chrome)).depth, 4);
 });
 
+test('readElementBox: the element\'s box on the screen now; null when it is off the screen, empty or gone', async () => {
+  const { readElementBox } = await import('../extension/element-box.js');
+  const cdpWith = (value, failResolve = false) => {
+    const calls = [];
+    return {
+      calls,
+      send: async (method) => {
+        calls.push(method);
+        if (method === 'DOM.resolveNode') { if (failResolve) throw new Error('No node'); return { object: { objectId: 'o' } }; }
+        if (method === 'Runtime.callFunctionOn') return { result: { value } };
+        return {};
+      },
+    };
+  };
+  const vp = { vw: 400, vh: 600 };
+  const inside = cdpWith({ left: 20, top: 100, width: 300, height: 80, radius: '8px', ...vp });
+  assert.deepEqual(await readElementBox(inside, 5), { left: 20, top: 100, width: 300, height: 80, radius: '8px' });
+  assert.ok(inside.calls.includes('Runtime.releaseObject')); // the handle is released
+  // partly visible: still a box (the effect is clipped by the screen)
+  assert.ok(await readElementBox(cdpWith({ left: -50, top: 550, width: 300, height: 200, radius: '0px', ...vp }), 5));
+  // wholly below / above / beside the screen: no box, so no edge (not a screen-wide one in its place)
+  assert.equal(await readElementBox(cdpWith({ left: 0, top: 700, width: 100, height: 50, radius: '0px', ...vp }), 5), null);
+  assert.equal(await readElementBox(cdpWith({ left: 0, top: -80, width: 100, height: 50, radius: '0px', ...vp }), 5), null);
+  assert.equal(await readElementBox(cdpWith({ left: 500, top: 10, width: 100, height: 50, radius: '0px', ...vp }), 5), null);
+  assert.equal(await readElementBox(cdpWith({ left: 0, top: 0, width: 0, height: 0, radius: '0px', ...vp }), 5), null); // not rendered
+  assert.equal(await readElementBox(cdpWith(null, true), 5), null); // gone
+});
+
 test('formatDate: 2026.11.16 16:42:30, 24 hours, padded, no spaces inside the date', async () => {
   const { formatDate } = await import('../extension/format.js');
   assert.equal(formatDate(new Date(2026, 10, 16, 16, 42, 30)), '2026.11.16 16:42:30');

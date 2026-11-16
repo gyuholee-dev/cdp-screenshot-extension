@@ -6,6 +6,7 @@ import { saveBlob } from './save.js';
 import { focusTab } from './focus.js';
 import { captureFlow } from './capture-flow.js';
 import { renderEffect } from './feedback.js';
+import { readElementBox } from './element-box.js';
 import { createPickGuard } from './pick-guard.js';
 
 const MENU = [
@@ -60,9 +61,10 @@ chrome.action.onClicked.addListener((tab) => togglePanel(tab.windowId));
 
 // --- capture -----------------------------------------------------------------------------------
 /** The flash and edge on the page, through the connection the capture used (no extra permission). */
-async function playEffect(cdp, variant, effects) {
+async function playEffect(cdp, variant, effects, edgeBox) {
+  const box = edgeBox === undefined ? 'undefined' : JSON.stringify(edgeBox);
   await cdp.send('Runtime.evaluate', {
-    expression: `(${renderEffect.toString()})(${JSON.stringify(variant)}, ${JSON.stringify(effects)})`,
+    expression: `(${renderEffect.toString()})(${JSON.stringify(variant)}, ${JSON.stringify(effects)}, ${box})`,
     returnByValue: true,
   });
 }
@@ -80,7 +82,9 @@ async function readPage(cdp) {
 async function showEffect({ cdp, ok, error, result }) {
   if (ok && result) { try { result.page = await readPage(cdp); } catch { /* the entry then has no address */ } }
   if (!ok && error?.code === ErrorCode.CANCELED) return; // an Esc is not an event worth flashing
-  await playEffect(cdp, ok ? 'ok' : 'error', (await loadSettings()).effects);
+  // An element capture: the edge goes on that element only (or nowhere when it is off the screen now).
+  const edgeBox = ok && result?.target ? await readElementBox(cdp, result.target.backendNodeId) : undefined;
+  await playEffect(cdp, ok ? 'ok' : 'error', (await loadSettings()).effects, edgeBox);
 }
 
 const deps = {
