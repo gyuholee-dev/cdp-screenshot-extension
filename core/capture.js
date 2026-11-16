@@ -116,6 +116,7 @@ export async function captureNode(cdp, target, options = {}) {
       const moved = Math.abs(after.height - clip.height) > 1 || Math.abs(after.width - clip.width) > 1;
       if (!moved) break;
     }
+    result.target = { backendNodeId }; // which element was shot (a host may want to point at it)
     return result;
   });
 }

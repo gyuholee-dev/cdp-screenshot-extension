@@ -576,3 +576,19 @@ test('pickNode: an aborted signal cancels the pick (the host UI has the keyboard
   aborted.abort();
   await rejectsWith(pickNode(makeFakeCdp(), { signal: aborted.signal }), ErrorCode.CANCELED);
 });
+
+test('captureNode: the result says which element was shot (a host may point at it)', async () => {
+  const cdp = makeFakeCdp({
+    'DOM.getDocument': { root: { nodeId: 1 } },
+    'DOM.querySelector': { nodeId: 7 },
+    'DOM.describeNode': { node: { backendNodeId: 42 } },
+    'DOM.resolveNode': { object: { objectId: 'el-obj' } },
+    'DOM.getBoxModel': { model: { border: [10, 20, 110, 20, 110, 70, 10, 70] } },
+    'Runtime.callFunctionOn': pageFns({ scanScrollers: null, measureHidden: { hidden: 0, max: 0, remaining: 0, total: 0, items: [] } }),
+    'Page.captureScreenshot': () => ({ data: makePng(100, 50) }),
+  });
+  const r = await captureNode(cdp, '#target', fast);
+  assert.deepEqual(r.target, { backendNodeId: 42 });
+  const viewport = await captureViewport(makeFakeCdp(), fast);
+  assert.equal(viewport.target, undefined); // only an element shot has one
+});
