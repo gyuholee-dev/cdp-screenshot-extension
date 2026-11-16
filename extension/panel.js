@@ -268,7 +268,7 @@ async function startCapture(kind) {
     const res = await chrome.runtime.sendMessage({ target: 'worker', type: 'capture', kind, windowId });
     if (!res?.ok) {
       if (res?.code === 'CANCELED') hideStatus(); // a cancel needs no message
-      else setStatus(describeError(res?.code ?? 'NO_RESPONSE'), 'err');
+      else setStatus(describeError(res?.code ?? 'NO_RESPONSE', res?.details), 'err');
       return;
     }
     fresh.add(res.id);
@@ -330,12 +330,12 @@ function showView(name, animate = true) {
   }
 }
 
-async function renderFolder() {
+async function renderDir() {
   const handle = await kvGet('saveDir');
-  $('folderName').value = handle ? handle.name : ''; // empty shows the placeholder: the download folder
-  // after a browser restart the folder must be allowed again, and only a click here can do that
+  $('dirName').value = handle ? handle.name : ''; // empty shows the placeholder: the download directory
+  // after a browser restart the directory must be allowed again, and only a click here can do that
   const granted = handle ? (await handle.queryPermission({ mode: 'readwrite' })) === 'granted' : true;
-  $('allowFolder').hidden = granted;
+  $('allowDir').hidden = granted;
 }
 
 /** The image width of a history card; its maximum width follows (panel.css: --history-img + the card's padding and border). */
@@ -401,22 +401,22 @@ function bindSettings() {
   $('flashReset').addEventListener('click', () => { $('flashCss').value = EFFECT_DEFAULTS.flash.css; });
   $('edgeReset').addEventListener('click', () => { $('edgeCss').value = EFFECT_DEFAULTS.edge.css; });
 
-  $('pickFolder').addEventListener('click', async () => {
+  $('pickDir').addEventListener('click', async () => {
     try {
       const handle = await showDirectoryPicker({ id: 'cdp-screenshot', mode: 'readwrite', startIn: 'documents' });
       await kvSet('saveDir', handle);
-      await renderFolder();
+      await renderDir();
     } catch (e) {
       if (e?.name !== 'AbortError') {
-        console.warn('[cdp-screenshot] folder:', e);
-        $('saved').textContent = describeError('FOLDER');
+        console.warn('[cdp-screenshot] dir:', e);
+        $('saved').textContent = describeError('DIR');
       }
     }
   });
-  $('allowFolder').addEventListener('click', async () => {
+  $('allowDir').addEventListener('click', async () => {
     const handle = await kvGet('saveDir');
     if (handle) await handle.requestPermission({ mode: 'readwrite' });
-    await renderFolder();
+    await renderDir();
   });
   $('clearAll').addEventListener('click', async () => {
     if (!confirm(t('clear.confirm'))) return;
@@ -436,7 +436,7 @@ async function init() {
   applyHistoryImageSize();
   fillSettings();
   bindSettings();
-  await renderFolder();
+  await renderDir();
   refreshCapturable();
   chrome.tabs.onActivated.addListener(watchCapturable); // another tab, a navigation, another window
   chrome.tabs.onUpdated.addListener(watchCapturable);

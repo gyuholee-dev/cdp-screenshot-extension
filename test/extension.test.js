@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { normalizeSettings, SETTING_DEFAULTS, AFTER_ACTIONS, loadSettings, saveSettings } from '../extension/settings.js';
-import { buildFilename, saveBlob, DEFAULT_SUBFOLDER } from '../extension/save.js';
+import { buildFilename, saveBlob, DEFAULT_SUBDIR } from '../extension/save.js';
 import { expiredIds } from '../extension/history.js';
 import { captureFlow } from '../extension/capture-flow.js';
 import { createPickGuard } from '../extension/pick-guard.js';
@@ -149,14 +149,14 @@ test('buildFilename', () => {
   assert.equal(buildFilename('viewport', 'image/png', new Date(2026, 10, 15, 9, 5, 3)), 'screenshot-viewport-20261115-090503.png');
 });
 
-test('saveBlob: no chosen folder -> the download folder itself', async () => {
+test('saveBlob: no chosen directory -> the download directory itself', async () => {
   const downloads = [];
   const chrome = { downloads: { download: async (o) => { downloads.push(o); return 1; } } };
   const r = await saveBlob(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }), 'a.png', { chromeApi: chrome });
   assert.deepEqual([r.where, r.path, r.note], ['downloads', 'a.png', undefined]);
   assert.equal(downloads[0].filename, 'a.png');
   assert.match(downloads[0].url, /^data:image\/png;base64,AQID$/); // no object URLs in a service worker
-  assert.equal(DEFAULT_SUBFOLDER, '');
+  assert.equal(DEFAULT_SUBDIR, '');
   assert.equal(downloads[0].saveAs, false);
   assert.equal(downloads[0].conflictAction, 'uniquify');
 });
@@ -177,15 +177,15 @@ function fakeDir({ permission = 'granted', requested = 'denied', failWrite = fal
   };
 }
 
-test('saveBlob: a chosen folder is written to directly', async () => {
+test('saveBlob: a chosen directory is written to directly', async () => {
   const dir = fakeDir();
   const chrome = { downloads: { download: async () => { throw new Error('should not download'); } } };
   const r = await saveBlob(new Blob(['x']), 'a.png', { dirHandle: dir, chromeApi: chrome });
-  assert.deepEqual([r.where, r.path], ['folder', 'Shots/a.png']);
+  assert.deepEqual([r.where, r.path], ['dir', 'Shots/a.png']);
   assert.equal(dir.written[0][0], 'a.png');
 });
 
-test('saveBlob: a chosen folder that cannot be written falls back to downloads with a note', async () => {
+test('saveBlob: a chosen directory that cannot be written falls back to downloads with a note', async () => {
   const downloads = [];
   const chrome = { downloads: { download: async (o) => { downloads.push(o); } } };
   const denied = await saveBlob(new Blob(['x']), 'a.png', { dirHandle: fakeDir({ permission: 'prompt' }), chromeApi: chrome });
@@ -194,7 +194,7 @@ test('saveBlob: a chosen folder that cannot be written falls back to downloads w
   const failed = await saveBlob(new Blob(['x']), 'b.png', { dirHandle: fakeDir({ failWrite: true }), chromeApi: chrome });
   assert.equal(failed.where, 'downloads');
   assert.ok(!/disk full/.test(failed.note), 'the raw message is not shown'); // (it goes to the console)
-  assert.match(failed.note, /다운로드 폴더/);
+  assert.match(failed.note, /다운로드 경로/);
   assert.equal(downloads.length, 2);
 });
 
@@ -257,7 +257,7 @@ test('captureFlow: "save" stores the shot and writes the result onto the entry',
   const failing = flowDeps({ settings: { afterAction: 'save' }, deps: { saveBlob: async () => { throw new Error('disk full'); } } });
   const f = await captureFlow({ kind: 'full', tab: { id: 5 }, origin: 'panel' }, failing);
   assert.ok(!/disk full/.test(f.note), 'the raw message is not shown'); // the shot is kept in the history anyway
-  assert.match(f.saveError, /저장하지 못했습니다/); // and the panel is told, in words made for the user
+  assert.match(f.saveError, /저장에 실패하였습니다/); // and the panel is told, in words made for the user
   assert.equal(failing.entries.get('e1').note, f.note);
 });
 

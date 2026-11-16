@@ -34,7 +34,7 @@ export async function pickNode(cdp, options = {}) {
       if (signal?.aborted) onAbort();
       else signal?.addEventListener?.('abort', onAbort, { once: true });
       timer = setTimeout(
-        () => reject(new CaptureError(ErrorCode.TIMEOUT, 'The element pick timed out.')),
+        () => reject(new CaptureError(ErrorCode.TIMEOUT, 'The element pick timed out.', { details: { pickTimeoutMs: opts.pickTimeoutMs } })),
         opts.pickTimeoutMs,
       );
     });

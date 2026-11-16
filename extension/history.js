@@ -1,5 +1,5 @@
 // Screenshot history in IndexedDB (shared by the service worker, which writes, and the panel, which
-// reads). Blobs are stored as they are. `kv` keeps small things, e.g. the chosen save-folder handle.
+// reads). Blobs are stored as they are. `kv` keeps small things, e.g. the chosen save-directory handle.
 const DB_NAME = 'cdp-screenshot';
 const DB_VERSION = 1;
 const DAY_MS = 24 * 60 * 60 * 1000;

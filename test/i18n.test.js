@@ -57,10 +57,22 @@ test('t(): message lookup, default-locale fallback, the key itself when missing,
 });
 
 test('errors: every code shown to the user has a description with what to do, the raw message is never shown', () => {
-  const codes = [...Object.values(ErrorCode).filter((c) => c !== 'CANCELED'), /* a cancel is silent */'NO_TAB', 'BUSY', 'NO_RESPONSE', 'UNKNOWN', 'SAVE', 'COPY', 'DELETE', 'FOLDER'];
+  const codes = [...Object.values(ErrorCode).filter((c) => c !== 'CANCELED'), /* a cancel is silent */'NO_TAB', 'BUSY', 'NO_RESPONSE', 'UNKNOWN', 'SAVE', 'COPY', 'DELETE', 'DIR'];
   use({});
   for (const c of codes) assert.ok(`error_${c}` in ko, `no description for ${c}`);
-  assert.equal(describeError('TOO_LARGE'), ko.error_TOO_LARGE.message);
+  assert.equal(describeError('NO_TAB'), ko.error_NO_TAB.message);
   assert.equal(describeError('SOMETHING_ELSE'), ko.error_UNKNOWN.message); // an unknown code: the general one
   assert.equal(describeError(undefined), ko.error_UNKNOWN.message);
+});
+
+test('errors: the too-large description shows the limit from the error details', () => {
+  use({});
+  assert.match(describeError('TOO_LARGE', { maxSide: 8000 }), /\(8000px\)/);
+  assert.match(describeError('TOO_LARGE'), /\(16384px\)/); // no details: the default limit
+});
+
+test('errors: the timeout description shows the seconds from the error details', () => {
+  use({});
+  assert.match(describeError('TIMEOUT', { pickTimeoutMs: 30000 }), /^30초 동안/);
+  assert.match(describeError('TIMEOUT'), /^60초 동안/); // no details: the default
 });

@@ -63,7 +63,7 @@ export async function captureFlow({ kind, tab, origin, signal }, deps) {
     // A capture that was not started from the panel has no one waiting for an answer: tell the panel
     // (the panel's own button gets the error as its answer). A cancel is not a failure.
     if (origin !== 'panel' && e?.code !== ErrorCode.CANCELED) {
-      notifyPanel({ type: 'capture-failed', message: describeError(e?.code), windowId: tab.windowId });
+      notifyPanel({ type: 'capture-failed', message: describeError(e?.code, e?.details), windowId: tab.windowId });
     }
     throw e;
   }

@@ -132,6 +132,7 @@ export function assertWithinLimit(widthPx, heightPx, maxSide) {
     throw new CaptureError(
       ErrorCode.TOO_LARGE,
       `The result image (${Math.ceil(widthPx)}×${Math.ceil(heightPx)}px) exceeds the limit of ${maxSide}px on a side.`,
+      { details: { maxSide } },
     );
   }
 }

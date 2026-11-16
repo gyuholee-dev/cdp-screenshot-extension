@@ -191,7 +191,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     ({ id, ms, saveError }) => sendResponse({ ok: true, id, ms, saveError }),
     (e) => {
       logFailure(e);
-      sendResponse({ ok: false, code: e?.code ?? 'UNKNOWN' }); // the raw message stays in the console (above)
+      sendResponse({ ok: false, code: e?.code ?? 'UNKNOWN', details: e?.details }); // the raw message stays in the console (above)
     },
   );
   return true; // answered asynchronously

@@ -14,12 +14,13 @@ export class CaptureError extends Error {
   /**
    * @param {string} code one of ErrorCode
    * @param {string} message
-   * @param {{cause?: unknown}} [opts]
+   * @param {{cause?: unknown, details?: object}} [opts] details: values of the failure (e.g. the limit that was exceeded)
    */
   constructor(code, message, opts = {}) {
     super(message, opts.cause === undefined ? undefined : { cause: opts.cause });
     this.name = 'CaptureError';
     this.code = code;
+    this.details = opts.details;
   }
 }
 
