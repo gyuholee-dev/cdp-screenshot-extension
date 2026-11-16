@@ -1,6 +1,7 @@
 import { createChromeCdp, runCapture } from '../adapter-chrome/index.js';
 import { ErrorCode } from '../core/index.js';
 import { loadSettings } from './settings.js';
+import { t } from './i18n.js';
 import * as history from './history.js';
 import { saveBlob } from './save.js';
 import { focusTab } from './focus.js';
@@ -10,9 +11,9 @@ import { readElementBox } from './element-box.js';
 import { createPickGuard } from './pick-guard.js';
 
 const MENU = [
-  { id: 'viewport', title: '화면 캡처' },
-  { id: 'full', title: '전체 캡처' },
-  { id: 'element', title: '요소 캡처' },
+  { id: 'viewport', title: 'kind.viewport' },
+  { id: 'full', title: 'kind.full' },
+  { id: 'element', title: 'kind.element' },
 ];
 // Where the menu shows: web pages only. Not in this extension's own pages (the side panel is a page
 // too, and a right click there must not offer a capture), nor on chrome:// pages that cannot be captured.
@@ -26,7 +27,7 @@ const openPanels = new Map(); // windowId -> number of connected panel instances
 function createMenus() {
   chrome.contextMenus.removeAll(() => {
     const log = () => { if (chrome.runtime.lastError) console.error('[cdp-screenshot] menu:', chrome.runtime.lastError.message); };
-    for (const m of MENU) chrome.contextMenus.create({ id: m.id, title: m.title, contexts: ['all'], documentUrlPatterns: MENU_PAGES }, log);
+    for (const m of MENU) chrome.contextMenus.create({ id: m.id, title: t(m.title), contexts: ['all'], documentUrlPatterns: MENU_PAGES }, log);
   });
 }
 chrome.runtime.onInstalled.addListener(createMenus);
@@ -106,8 +107,8 @@ const deps = {
 
 /** Guard: one capture per tab. */
 async function capture(kind, tab, origin) {
-  if (!tab?.id) throw Object.assign(new Error('촬영할 탭을 찾지 못했습니다.'), { code: 'NO_TAB' });
-  if (busy.has(tab.id)) throw Object.assign(new Error('이 탭은 이미 촬영 중입니다.'), { code: 'BUSY' });
+  if (!tab?.id) throw Object.assign(new Error('No tab to capture.'), { code: 'NO_TAB' });
+  if (busy.has(tab.id)) throw Object.assign(new Error('This tab is already being captured.'), { code: 'BUSY' });
   busy.add(tab.id);
   const controller = guard.add(tab.id, tab.windowId);
   try {
@@ -146,7 +147,7 @@ chrome.windows.onFocusChanged.addListener((windowId) => guard.cancelWhere((r) =>
 // The settings view's test buttons: play one effect on the page now (it attaches for a moment).
 async function testEffect(windowId, which, css) {
   const [tab] = await chrome.tabs.query({ active: true, windowId });
-  if (!tab?.id) throw new Error('효과를 보여 줄 탭을 찾지 못했습니다.');
+  if (!tab?.id) throw Object.assign(new Error('No tab to show the effect on.'), { code: 'NO_TAB' });
   const cdp = createChromeCdp(tab.id, chrome);
   await cdp.attach();
   try {
@@ -172,7 +173,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.target === 'worker' && msg.type === 'effect-test') {
     testEffect(msg.windowId, msg.which, msg.css).then(
       () => sendResponse({ ok: true }),
-      (e) => sendResponse({ ok: false, message: e?.message ?? String(e) }),
+      (e) => { console.error('[cdp-screenshot] effect test:', e); sendResponse({ ok: false, code: e?.code ?? 'EFFECT_TEST' }); },
     );
     return true;
   }
@@ -184,7 +185,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     ({ id, ms, saveError }) => sendResponse({ ok: true, id, ms, saveError }),
     (e) => {
       logFailure(e);
-      sendResponse({ ok: false, code: e?.code ?? 'UNKNOWN', message: e?.message ?? String(e) });
+      sendResponse({ ok: false, code: e?.code ?? 'UNKNOWN' }); // the raw message stays in the console (above)
     },
   );
   return true; // answered asynchronously

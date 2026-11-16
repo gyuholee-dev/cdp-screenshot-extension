@@ -28,13 +28,13 @@ export async function pickNode(cdp, options = {}) {
     try { await cdp.send('Overlay.setShowViewportSizeOnResize', { show: false }); } catch { /* older Chrome */ }
     const picked = new Promise((resolve, reject) => {
       offs.push(cdp.on('Overlay.inspectNodeRequested', (p) => resolve({ backendNodeId: p.backendNodeId })));
-      offs.push(cdp.on('Overlay.inspectModeCanceled', () => reject(new CaptureError(ErrorCode.CANCELED, '요소 선택이 취소되었습니다.'))));
-      offs.push(cdp.on('detach', () => reject(new CaptureError(ErrorCode.DETACHED, '요소 선택 중 디버거 연결이 끊겼습니다.'))));
-      onAbort = () => reject(new CaptureError(ErrorCode.CANCELED, '요소 선택이 취소되었습니다.'));
+      offs.push(cdp.on('Overlay.inspectModeCanceled', () => reject(new CaptureError(ErrorCode.CANCELED, 'The element pick was canceled.'))));
+      offs.push(cdp.on('detach', () => reject(new CaptureError(ErrorCode.DETACHED, 'The debugger connection was lost during the element pick.'))));
+      onAbort = () => reject(new CaptureError(ErrorCode.CANCELED, 'The element pick was canceled.'));
       if (signal?.aborted) onAbort();
       else signal?.addEventListener?.('abort', onAbort, { once: true });
       timer = setTimeout(
-        () => reject(new CaptureError(ErrorCode.TIMEOUT, '요소 선택 시간이 초과되었습니다.')),
+        () => reject(new CaptureError(ErrorCode.TIMEOUT, 'The element pick timed out.')),
         opts.pickTimeoutMs,
       );
     });

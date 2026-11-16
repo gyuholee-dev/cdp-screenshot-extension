@@ -4,6 +4,8 @@
 // Dependencies are injected so the flow can be tested without a browser.
 import { ErrorCode } from '../core/index.js';
 import { buildFilename } from './save.js';
+import { t } from './i18n.js';
+import { describeError } from './errors.js';
 
 
 /**
@@ -44,10 +46,11 @@ export async function captureFlow({ kind, tab, origin, signal }, deps) {
     if (settings.afterAction === 'save') {
       try {
         const saved = await saveBlob(blob, buildFilename(kind, result.mime, new Date(entry.createdAt)), { dirHandle: await getDirHandle() });
-        note = `저장됨: ${saved.path}${saved.note ? `\n${saved.note}` : ''}`;
+        note = t('note.saved', { path: saved.path }) + (saved.note ? `\n${saved.note}` : '');
       } catch (e) {
-        saveError = e?.message ?? String(e);
-        note = `저장 실패: ${saveError}`;
+        console.error('[cdp-screenshot] save:', e);
+        saveError = describeError('SAVE');
+        note = saveError;
       }
       await history.updateEntry(entry.id, { note });
     }
@@ -60,7 +63,7 @@ export async function captureFlow({ kind, tab, origin, signal }, deps) {
     // A capture that was not started from the panel has no one waiting for an answer: tell the panel
     // (the panel's own button gets the error as its answer). A cancel is not a failure.
     if (origin !== 'panel' && e?.code !== ErrorCode.CANCELED) {
-      notifyPanel({ type: 'capture-failed', message: e?.message ?? String(e), windowId: tab.windowId });
+      notifyPanel({ type: 'capture-failed', message: describeError(e?.code), windowId: tab.windowId });
     }
     throw e;
   }

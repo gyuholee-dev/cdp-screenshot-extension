@@ -14,13 +14,13 @@ const MIME = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
 export function normalizeOptions(o = {}) {
   const opts = { ...DEFAULTS, ...Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) };
   if (!Number.isInteger(opts.depth) || opts.depth < 0) {
-    throw new CaptureError(ErrorCode.INVALID_OPTION, 'depth는 0 이상의 정수여야 합니다.');
+    throw new CaptureError(ErrorCode.INVALID_OPTION, 'depth must be an integer of 0 or more.');
   }
   if (!MIME[opts.format]) {
-    throw new CaptureError(ErrorCode.INVALID_OPTION, 'format은 png, jpeg, webp 중 하나여야 합니다.');
+    throw new CaptureError(ErrorCode.INVALID_OPTION, 'format must be one of png, jpeg, webp.');
   }
   for (const k of ['settleMs', 'maxSidePixels', 'pickTimeoutMs']) {
-    if (!(opts[k] >= 0)) throw new CaptureError(ErrorCode.INVALID_OPTION, `${k}가 올바르지 않습니다.`);
+    if (!(opts[k] >= 0)) throw new CaptureError(ErrorCode.INVALID_OPTION, `${k} is invalid.`);
   }
   opts.mime = MIME[opts.format];
   opts.progress = (info) => {
@@ -41,7 +41,7 @@ export async function runSession(cdp, fn) {
   const detached = new Promise((_, rej) => { reject = rej; });
   detached.catch(() => {});
   const off = cdp.on?.('detach', () => {
-    reject(new CaptureError(ErrorCode.DETACHED, '캡처 중 디버거 연결이 끊겼습니다.'));
+    reject(new CaptureError(ErrorCode.DETACHED, 'The debugger connection was lost during the capture.'));
   });
   try {
     return await Promise.race([fn(defer), detached]);
@@ -131,7 +131,7 @@ export function assertWithinLimit(widthPx, heightPx, maxSide) {
   if (widthPx > maxSide || heightPx > maxSide) {
     throw new CaptureError(
       ErrorCode.TOO_LARGE,
-      `결과 이미지(${Math.ceil(widthPx)}×${Math.ceil(heightPx)}px)가 한 변 ${maxSide}px 한계를 넘습니다.`,
+      `The result image (${Math.ceil(widthPx)}×${Math.ceil(heightPx)}px) exceeds the limit of ${maxSide}px on a side.`,
     );
   }
 }

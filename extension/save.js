@@ -1,6 +1,8 @@
 // Saving a screenshot to a folder. Runs in the service worker (no DOM, no object URLs: the download
 // goes through a data URL). The result handling lives in the host (here: the extension), never in core.
 
+import { t } from './i18n.js';
+
 // Until a folder is chosen: Chrome's download folder itself ('' = no subfolder; the downloads API
 // cannot take an absolute path).
 export const DEFAULT_SUBFOLDER = '';
@@ -49,9 +51,10 @@ export async function saveBlob(blob, filename, { dirHandle, chromeApi = globalTh
         await writeToFolder(dirHandle, blob, filename);
         return { where: 'folder', path: `${dirHandle.name}/${filename}` };
       }
-      note = '선택한 폴더에 쓸 권한이 없어 다운로드 폴더에 저장했습니다(환경설정에서 폴더를 다시 허용하세요).';
+      note = t('save.noPermission');
     } catch (e) {
-      note = `선택한 폴더에 저장하지 못해 다운로드 폴더에 저장했습니다: ${e?.message ?? e}`;
+      console.warn('[cdp-screenshot] save to folder:', e);
+      note = t('save.fallback');
     }
   }
   await chromeApi.downloads.download({

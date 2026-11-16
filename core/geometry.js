@@ -24,7 +24,7 @@ export function computeClip(boxModel, metrics) {
   const width = Math.ceil(x1) - x;
   const height = Math.ceil(y1) - y;
   if (!(width > 0 && height > 0)) {
-    throw new CaptureError(ErrorCode.NO_ELEMENT, '요소의 크기가 0이라 캡처할 수 없습니다.');
+    throw new CaptureError(ErrorCode.NO_ELEMENT, 'The element has no size, so it cannot be captured.');
   }
   return { x, y, width, height, scale: 1 };
 }

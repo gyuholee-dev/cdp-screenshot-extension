@@ -3,15 +3,15 @@
 // of an entry: the click gives the panel focus and a user gesture, so it behaves the same whatever
 // page the shot is from and however the capture was started.
 import { AFTER_ACTIONS, EFFECT_DEFAULTS, SETTING_DEFAULTS, loadSettings, saveSettings } from './settings.js';
-import { clearEntries, deleteEntry, kvDelete, kvGet, kvSet, listEntries, pruneExpired } from './history.js';
+import { clearEntries, deleteEntry, kvGet, kvSet, listEntries, pruneExpired } from './history.js';
 import { buildFilename, saveBlob } from './save.js';
 import { copyImage } from './clipboard.js';
 import { formatDate } from './format.js';
+import { applyDom, t } from './i18n.js';
+import { describeError } from './errors.js';
 
 const $ = (id) => document.getElementById(id);
-const KINDS = { viewport: '화면 캡처', full: '전체 캡처', element: '요소 캡처' };
-const KIND_SHORT = { viewport: '화면', full: '전체', element: '요소' }; // the kind in front of the size on a card
-const STAGES = { pick: '요소를 클릭하세요 (Esc로 취소)', expand: '스크롤 영역을 펼치는 중…', capture: '촬영 중…' };
+const STAGES = ['pick', 'expand', 'capture']; // progress stages: the text is t(`stage.${stage}`)
 
 let settings;
 let windowId;
@@ -44,8 +44,8 @@ function connect() {
 // --- status -----------------------------------------------------------------------------------
 /** The same words for a finished capture, whoever started it. */
 function doneMessage({ kind, width, height, ms, saveError }) {
-  const took = typeof ms === 'number' ? ` · ${(ms / 1000).toFixed(1)}초` : '';
-  return `${KINDS[kind]} · ${width}×${height}px 촬영됨${took} · 아래 기록의 복사 버튼으로 복사하세요${saveError ? `\n저장 실패: ${saveError}` : ''}`;
+  const took = typeof ms === 'number' ? t('done.took', { sec: (ms / 1000).toFixed(1) }) : '';
+  return t('done', { kind: t(`kind.${kind}`), width, height, took }) + (saveError ? `\n${saveError}` : ''); // (saveError is already worded)
 }
 
 const ALERT_SHOW_MS = { ok: 3000, err: 3000 }; // how long a finished capture's message stays
@@ -141,7 +141,7 @@ function renderItem(e, index) {
   // at the right: the kind and size on the first line (they alone set the width of this column, so
   // the address is cut by them), the date on the second line, placed by position (it takes no width)
   const size = document.createElement('span');
-  size.textContent = `${KIND_SHORT[e.kind] ?? e.kind} · ${e.width}×${e.height}px`;
+  size.textContent = `${t(`kindShort.${e.kind}`)} · ${e.width}×${e.height}px`;
   const date = document.createElement('span');
   date.className = 'date';
   date.textContent = formatDate(e.createdAt);
@@ -159,7 +159,7 @@ function renderItem(e, index) {
   };
   const spacer = document.createElement('span');
   spacer.className = 'spacer';
-  actions.append(mk('복사', doCopy, 'act-accent'), mk('저장', doSave, 'act-accent'), spacer, mk('삭제', doDelete, 'act-delete'));
+  actions.append(mk(t('act.copy'), doCopy, 'act-accent'), mk(t('act.save'), doSave, 'act-accent'), spacer, mk(t('act.delete'), doDelete, 'act-delete'));
 
   li.append(img, meta, actions);
   return li;
@@ -179,10 +179,10 @@ async function refresh() {
 const DELETE_DELAY_MS = 250; // a delete waits this long so the red is seen (the card's border was already red under the pointer)
 const DONE_MS = 500; // how long a card keeps its accent border and glow, and the clicked button its blue (copy, delete)
 
-/** A failed action of a card: told in the alert area (red), the same for every action. */
-function fail(what, e) {
-  console.warn(`[cdp-screenshot] ${what} failed:`, e);
-  setStatus(`${what} 실패: ${e?.message ?? e}`, 'err');
+/** A failed action of a card: told in the alert area (red), the same for every action. `code` is COPY, SAVE or DELETE. */
+function fail(code, e) {
+  console.warn(`[cdp-screenshot] ${code} failed:`, e);
+  setStatus(describeError(code), 'err');
   return false;
 }
 
@@ -199,7 +199,7 @@ async function doCopy(entry, button) {
     markDone(button);
     return true;
   } catch (e) {
-    return fail('복사', e);
+    return fail('COPY', e);
   }
 }
 
@@ -214,7 +214,7 @@ async function doSave(entry, button) {
     markDone(button); // the same as a copy
     return true;
   } catch (e) {
-    return fail('저장', e);
+    return fail('SAVE', e);
   }
 }
 
@@ -229,7 +229,7 @@ async function doDelete(entry, button) {
     await refresh();
   } catch (e) {
     if (li) delete li.dataset.deleting;
-    fail('삭제', e);
+    fail('DELETE', e);
   }
 }
 
@@ -249,12 +249,12 @@ async function startCapture(kind) {
   if (running) return;
   setRunning(true);
   lightTool(kind);
-  setStatus('촬영 중…', 'busy');
+  setStatus(t('capturing'), 'busy');
   try {
     const res = await chrome.runtime.sendMessage({ target: 'worker', type: 'capture', kind, windowId });
     if (!res?.ok) {
       if (res?.code === 'CANCELED') hideStatus(); // a cancel needs no message
-      else setStatus(`촬영 실패: ${res?.message ?? '응답 없음'}`, 'err');
+      else setStatus(describeError(res?.code ?? 'NO_RESPONSE'), 'err');
       return;
     }
     fresh.add(res.id);
@@ -262,7 +262,8 @@ async function startCapture(kind) {
     const entry = (await listEntries()).find((e) => e.id === res.id);
     setStatus(doneMessage({ kind, width: entry?.width, height: entry?.height, ms: res.ms, saveError: res.saveError }), res.saveError ? 'err' : 'ok');
   } catch (e) {
-    setStatus(`촬영 실패: ${e?.message ?? e}`, 'err');
+    console.warn('[cdp-screenshot] capture:', e);
+    setStatus(describeError('NO_RESPONSE'), 'err');
   } finally {
     setRunning(false);
     unlightTool(kind);
@@ -272,11 +273,11 @@ async function startCapture(kind) {
 function handleMessage(msg) {
   if (msg?.target && msg.target !== 'panel') return; // (a port message has no target)
   if (msg.windowId != null && msg.windowId !== windowId) return; // another window's capture
-  if (msg.type === 'progress' && STAGES[msg.stage]) {
+  if (msg.type === 'progress' && STAGES.includes(msg.stage)) {
     // Shown for any capture, wherever it was started: the pick waits on the page, but the user may
     // take the panel's focus, and must be able to cancel from here.
     if (msg.kind) lightTool(msg.kind);
-    if (running || msg.stage === 'pick') setStatus(STAGES[msg.stage], 'busy');
+    if (running || msg.stage === 'pick') setStatus(t(`stage.${msg.stage}`), 'busy');
     pickActive = msg.stage === 'pick';
     updateBusy();
   }
@@ -286,7 +287,7 @@ function handleMessage(msg) {
     updateBusy();
     if (!running && alertCls === 'busy') hideStatus(); // the pick message goes; a finished one stays its time
   }
-  if (msg.type === 'capture-failed' && !running) setStatus(`촬영 실패: ${msg.message}`, 'err'); // started elsewhere
+  if (msg.type === 'capture-failed' && !running) setStatus(msg.message, 'err'); // started elsewhere
   if (msg.type === 'history-changed') { // captured elsewhere (context menu, shortcut)
     if (msg.id) fresh.add(msg.id);
     if (!running) setStatus(doneMessage(msg), msg.saveError ? 'err' : 'ok');
@@ -317,8 +318,7 @@ function showView(name, animate = true) {
 
 async function renderFolder() {
   const handle = await kvGet('saveDir');
-  $('folderName').textContent = handle ? `선택한 폴더: ${handle.name}` : '기본: 다운로드 폴더';
-  $('resetFolder').disabled = !handle;
+  $('folderName').value = handle ? handle.name : ''; // empty shows the placeholder: the download folder
   // after a browser restart the folder must be allowed again, and only a click here can do that
   const granted = handle ? (await handle.queryPermission({ mode: 'readwrite' })) === 'granted' : true;
   $('allowFolder').hidden = granted;
@@ -357,24 +357,31 @@ async function persistSettings() {
   });
   fillSettings();
   applyHistoryImageSize();
-  $('saved').textContent = '저장됨';
+  $('saved').textContent = t('saved');
   setTimeout(() => { $('saved').textContent = ''; }, 1500);
   await pruneExpired(settings.retentionDays);
 }
 
 function bindSettings() {
-  // like the app's settings: edit, then Save (the test buttons use what is typed, saved or not)
-  $('save').addEventListener('click', persistSettings);
-  $('resetAll').addEventListener('click', () => {
+  // Every item takes effect the moment it is changed (a change event: leaving the field, picking, toggling).
+  // Save saves all of them at once and goes back to the main view; Defaults puts every item back and applies at once.
+  for (const id of ['depth', 'format', 'settleMs', 'afterAction', 'retentionDays', 'historyImageSize', 'flashOn', 'flashCss', 'edgeOn', 'edgeCss']) {
+    $(id).addEventListener('change', persistSettings);
+  }
+  $('save').addEventListener('click', async () => {
+    await persistSettings();
+    showView('main');
+  });
+  $('resetAll').addEventListener('click', async () => {
     fillSettings(SETTING_DEFAULTS);
-    $('saved').textContent = '기본값을 채웠습니다. 저장을 눌러야 적용됩니다';
+    await persistSettings();
   });
 
   // test buttons play the effect with what is typed now (saved or not) on the page being viewed
   const testEffect = (which) => async () => {
     $('effectMsg').textContent = '';
     const res = await chrome.runtime.sendMessage({ target: 'worker', type: 'effect-test', windowId, which, css: $(`${which}Css`).value });
-    if (!res?.ok) $('effectMsg').textContent = `테스트 실패: ${res?.message ?? '응답 없음'}`;
+    if (!res?.ok) $('effectMsg').textContent = describeError(res?.code ?? 'NO_RESPONSE');
   };
   $('flashTest').addEventListener('click', testEffect('flash'));
   $('edgeTest').addEventListener('click', testEffect('edge'));
@@ -387,7 +394,10 @@ function bindSettings() {
       await kvSet('saveDir', handle);
       await renderFolder();
     } catch (e) {
-      if (e?.name !== 'AbortError') $('saved').textContent = `폴더 선택 실패: ${e?.message ?? e}`;
+      if (e?.name !== 'AbortError') {
+        console.warn('[cdp-screenshot] folder:', e);
+        $('saved').textContent = describeError('FOLDER');
+      }
     }
   });
   $('allowFolder').addEventListener('click', async () => {
@@ -395,12 +405,11 @@ function bindSettings() {
     if (handle) await handle.requestPermission({ mode: 'readwrite' });
     await renderFolder();
   });
-  $('resetFolder').addEventListener('click', async () => { await kvDelete('saveDir'); await renderFolder(); });
   $('clearAll').addEventListener('click', async () => {
-    if (!confirm('촬영 기록을 모두 지웁니다. 계속할까요?')) return;
+    if (!confirm(t('clear.confirm'))) return;
     await clearEntries();
     await refresh();
-    $('saved').textContent = '기록을 비웠습니다';
+    $('saved').textContent = t('clear.done');
   });
 }
 
@@ -410,6 +419,7 @@ async function init() {
   windowId = (await chrome.windows.getCurrent()).id;
   connect();
   settings = await loadSettings();
+  applyDom();
   applyHistoryImageSize();
   fillSettings();
   bindSettings();

@@ -10,6 +10,10 @@ import { CaptureError, ErrorCode } from '../core/index.js';
 
 const root = new URL('../', import.meta.url);
 const manifest = JSON.parse(readFileSync(new URL('manifest.json', root), 'utf8'));
+// chrome.i18n stand-in: the texts of the default locale (the tests below match the Korean words)
+const koMessages = JSON.parse(readFileSync(new URL('_locales/ko/messages.json', root), 'utf8'));
+globalThis.chrome ??= {};
+globalThis.chrome.i18n = { getMessage: (k) => koMessages[k]?.message ?? '', getUILanguage: () => 'ko' };
 
 test('manifest: MV3, side panel + context menu, required permissions, referenced files exist', () => {
   assert.equal(manifest.manifest_version, 3);
@@ -183,7 +187,8 @@ test('saveBlob: a chosen folder that cannot be written falls back to downloads w
   assert.match(denied.note, /권한/);
   const failed = await saveBlob(new Blob(['x']), 'b.png', { dirHandle: fakeDir({ failWrite: true }), chromeApi: chrome });
   assert.equal(failed.where, 'downloads');
-  assert.match(failed.note, /disk full/);
+  assert.ok(!/disk full/.test(failed.note), 'the raw message is not shown'); // (it goes to the console)
+  assert.match(failed.note, /다운로드 폴더/);
   assert.equal(downloads.length, 2);
 });
 
@@ -239,14 +244,14 @@ test('captureFlow (panel): history only by default; never touches the clipboard'
 test('captureFlow: "save" stores the shot and writes the result onto the entry', async () => {
   const d = flowDeps({ settings: { afterAction: 'save' } });
   const r = await captureFlow({ kind: 'full', tab: { id: 5 }, origin: 'panel' }, d);
-  assert.match(r.note, /^저장됨: screenshot-full-/);
+  assert.match(r.note, /^저장했습니다: screenshot-full-/);
   assert.equal(d.entries.get('e1').note, r.note);
   assert.ok(d.calls.some((c) => c[0] === 'save'));
 
   const failing = flowDeps({ settings: { afterAction: 'save' }, deps: { saveBlob: async () => { throw new Error('disk full'); } } });
   const f = await captureFlow({ kind: 'full', tab: { id: 5 }, origin: 'panel' }, failing);
-  assert.match(f.note, /저장 실패: disk full/); // the shot is kept in the history anyway
-  assert.equal(f.saveError, 'disk full'); // and the panel is told
+  assert.ok(!/disk full/.test(f.note), 'the raw message is not shown'); // the shot is kept in the history anyway
+  assert.match(f.saveError, /저장하지 못했습니다/); // and the panel is told, in words made for the user
   assert.equal(failing.entries.get('e1').note, f.note);
 });
 
@@ -272,7 +277,8 @@ test('captureFlow: a failure of a capture not started from the panel is told to 
     d.notifyPanel = (m) => sent.push(m);
     return captureFlow({ kind: 'viewport', tab: { id: 1, windowId: 4 }, origin }, d).catch(() => sent);
   };
-  assert.deepEqual((await msgs('menu', new Error('attach failed'))).filter((m) => m.type === 'capture-failed'), [{ type: 'capture-failed', message: 'attach failed', windowId: 4 }]);
+  assert.deepEqual((await msgs('menu', new Error('attach failed'))).filter((m) => m.type === 'capture-failed'), [{ type: 'capture-failed', message: koMessages.error_UNKNOWN.message, windowId: 4 }]); // words for the user, not the raw message
+  assert.equal((await msgs('menu', new CaptureError(ErrorCode.NOT_ATTACHABLE, 'raw'))).find((m) => m.type === 'capture-failed').message, koMessages.error_NOT_ATTACHABLE.message);
   assert.equal((await msgs('menu', new CaptureError(ErrorCode.CANCELED, 'c'))).filter((m) => m.type === 'capture-failed').length, 0);
   assert.equal((await msgs('panel', new Error('x'))).filter((m) => m.type === 'capture-failed').length, 0); // it gets the error as its answer
   await assert.rejects(captureFlow({ kind: 'viewport', tab: { id: 1 }, origin: 'menu' }, flowDeps({ deps: { runCapture: async () => { throw new Error('boom'); } } })), /boom/);
@@ -328,8 +334,7 @@ test('feedback: the effect function is self-contained and only uses CSP-safe API
   const { renderEffect } = await import('../extension/feedback.js');
   assert.doesNotThrow(() => new Function(`return (${renderEffect.toString()})`));
   assert.ok(!/createElement\(['"]style['"]\)/.test(renderEffect.toString()));
-  // the manifest and menus use the agreed terms
-  assert.deepEqual(manifest.commands.viewport.description, '화면 캡처'); // a <style> element can be blocked by the page's CSP
+  // (a <style> element can be blocked by the page's CSP)
 });
 
 test('focusTab: focuses the window, activates the tab, never throws', async () => {

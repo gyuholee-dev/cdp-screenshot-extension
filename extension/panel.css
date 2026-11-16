@@ -129,7 +129,7 @@ li.new { animation: new-entry 1.4s ease-out; }
 @media (prefers-reduced-motion: reduce) { li.new { animation: none; } li, button { transition: none; } }
 
 /* settings: boxes of rows */
-.box { margin: 0 0 12px; padding: 14px; border-radius: 12px; background: var(--box); --surf: var(--card); }
+.box { margin: 0 0 12px; padding: 14px; border-radius: 12px; background: var(--box); --surf: var(--card); --fill-hover: light-dark(var(--ghost-hover), color-mix(in srgb, var(--box) 92%, var(--text))); /* as the app's boxes: a fill a little off the box's colour */ }
 .fgroup__head { padding-bottom: 10px; border-bottom: 1px solid var(--row-line); }
 .fgroup__title { display: block; margin: 0; font-size: 1rem; font-weight: 500; }
 .fgroup__note { display: block; margin: 4px 0 0; }
@@ -145,6 +145,13 @@ li.new { animation: new-entry 1.4s ease-out; }
 .fld--stack:last-child { padding-bottom: 0; }
 .fld--stack .btns { margin-top: 8px; }
 .fld--stack .sub { margin: 8px 0 0; }
+/* a stacked field (as the app's path rows): the label, then the input with its button(s), then the note */
+.fld--stack > .fld__label { display: block; width: fit-content; margin: 0 0 6px; }
+.pr { display: flex; gap: 8px; }
+.pr input { flex: 1; width: auto; min-width: 0; text-overflow: ellipsis; }
+.pr button { flex: none; white-space: nowrap; }
+.fld--stack .fld__note { margin: 8px 0 0; }
+input::placeholder { color: light-dark(#757575, #757575); }
 .fld__box { width: 100%; background: var(--field); outline-offset: -1px; font: 0.75rem/1.5 ui-monospace, Menlo, monospace; resize: vertical; }
 .fgroup + .fgroup { margin-top: 0; }
 .box > .fld:last-child:not(.fld--stack):not(.fld--note) { margin-bottom: calc(var(--row-trim) * -1); }
@@ -162,6 +169,30 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .fld__select select:focus-visible { outline-color: var(--accent); background: var(--field); }
 .fld__select select option { color: var(--text); background: var(--card); text-align: left; }
 .fld__select .chev { position: absolute; right: 4px; top: 50%; margin-top: -8px; color: var(--sub); pointer-events: none; }
+
+/* The drop-down list of a select, styled like the app's (styles/_select.scss): a customizable select
+   (appearance: base-select) lets the list be drawn as part of the page: a rounded card under the select, its right
+   edge on the select's, the options as rounded rows with a fill under the pointer and the chosen one in the accent
+   colour. A browser without it keeps its own list. */
+@supports (appearance: base-select) {
+  .fld__select select,
+  .fld__select select::picker(select) { appearance: base-select; }
+  .fld__select select::picker-icon { display: none; } /* (the chevron beside the select is the page's own) */
+  .fld__select select::picker(select) {
+    position-area: block-end span-inline-start; /* under the select, its right edge on the select's right edge */
+    margin: 4px 0 0;
+    padding: 4px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  }
+  .fld__select select option { padding: 6px 12px; border-radius: 6px; text-align: left; text-align-last: left; cursor: pointer; }
+  .fld__select select option:hover, .fld__select select option:focus-visible { background: var(--fill-hover); }
+  .fld__select select option:checked { color: var(--accent); }
+  .fld__select select option::checkmark { display: none; }
+}
 
 /* the switch */
 input.sw { appearance: none; flex: none; width: 34px; height: 20px; margin: 0; padding: 0; border-radius: 10px; border: 1px solid var(--line); background: var(--field); position: relative; cursor: pointer; transition: background-color 0.15s, var(--ring-fade); }

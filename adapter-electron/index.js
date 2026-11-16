@@ -43,7 +43,7 @@ export function createElectronCdp(webContents) {
       if (dbg.isAttached()) {
         throw new CaptureError(
           ErrorCode.NOT_ATTACHABLE,
-          '다른 디버거가 이미 붙어 있습니다(개발자 도구가 열려 있는지 확인하세요).',
+          'Another debugger is already attached (check whether DevTools is open).',
         );
       }
       try {
@@ -91,7 +91,7 @@ async function withCdp(webContents, fn) {
  */
 export async function runCapture(webContents, kind, options = {}) {
   const capture = captureByKind[kind];
-  if (!capture) throw new CaptureError(ErrorCode.INVALID_OPTION, `알 수 없는 캡처 종류: ${kind}`);
+  if (!capture) throw new CaptureError(ErrorCode.INVALID_OPTION, `Unknown capture kind: ${kind}`);
   return withCdp(webContents, (cdp) => capture(cdp, options));
 }
 

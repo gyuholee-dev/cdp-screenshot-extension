@@ -76,7 +76,7 @@ export function createChromeCdp(tabId, chromeApi = globalThis.chrome) {
  */
 export async function runCapture(tabId, kind, options = {}, chromeApi = globalThis.chrome, hooks = {}) {
   const capture = captureByKind[kind];
-  if (!capture) throw new CaptureError(ErrorCode.INVALID_OPTION, `알 수 없는 캡처 종류: ${kind}`);
+  if (!capture) throw new CaptureError(ErrorCode.INVALID_OPTION, `Unknown capture kind: ${kind}`);
   const cdp = createChromeCdp(tabId, chromeApi);
   await cdp.attach();
   let outcome = { ok: false, error: undefined };

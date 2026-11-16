@@ -22,7 +22,7 @@ export async function captureFull(cdp, options = {}) {
   return runSession(cdp, async (defer) => {
     const dpr = await devicePixelRatio(cdp);
     const { result } = await cdp.send('Runtime.evaluate', { expression: 'document.body' });
-    if (!result?.objectId) throw new CaptureError(ErrorCode.NO_ELEMENT, 'document.body를 찾을 수 없습니다.');
+    if (!result?.objectId) throw new CaptureError(ErrorCode.NO_ELEMENT, 'document.body was not found.');
     defer(() => cdp.send('Runtime.releaseObject', { objectId: result.objectId }));
 
     opts.progress({ stage: 'expand' });
@@ -52,12 +52,12 @@ async function resolveBackendNodeId(cdp, target) {
   if (target && typeof target === 'object' && Number.isInteger(target.backendNodeId)) return target.backendNodeId;
   const selector = typeof target === 'string' ? target : target?.selector;
   if (typeof selector !== 'string' || !selector) {
-    throw new CaptureError(ErrorCode.INVALID_OPTION, 'target은 backendNodeId 또는 CSS 선택자여야 합니다.');
+    throw new CaptureError(ErrorCode.INVALID_OPTION, 'target must be a backendNodeId or a CSS selector.');
   }
   await cdp.send('DOM.enable');
   const { root } = await cdp.send('DOM.getDocument', { depth: 0 });
   const { nodeId } = await cdp.send('DOM.querySelector', { nodeId: root.nodeId, selector });
-  if (!nodeId) throw new CaptureError(ErrorCode.NO_ELEMENT, `선택자와 일치하는 요소가 없습니다: ${selector}`);
+  if (!nodeId) throw new CaptureError(ErrorCode.NO_ELEMENT, `No element matches the selector: ${selector}`);
   const { node } = await cdp.send('DOM.describeNode', { nodeId });
   return node.backendNodeId;
 }
