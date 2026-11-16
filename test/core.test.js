@@ -561,3 +561,18 @@ test('a window that renders no frames is detected once; later waits are skipped'
 test('the default shot delay is 250 ms', () => {
   assert.equal(DEFAULTS.settleMs, 250);
 });
+
+test('pickNode: an aborted signal cancels the pick (the host UI has the keyboard, not the page) and cleans up', async () => {
+  const cdp = makeFakeCdp();
+  const ctrl = new AbortController();
+  const p = pickNode(cdp, { signal: ctrl.signal, pickTimeoutMs: 1000 });
+  await new Promise((r) => setTimeout(r, 5));
+  ctrl.abort();
+  await rejectsWith(p, ErrorCode.CANCELED);
+  assert.deepEqual(cdp.names().slice(-3), ['Overlay.hideHighlight', 'Overlay.setShowViewportSizeOnResize', 'Overlay.disable']);
+
+  // already aborted before it starts
+  const aborted = new AbortController();
+  aborted.abort();
+  await rejectsWith(pickNode(makeFakeCdp(), { signal: aborted.signal }), ErrorCode.CANCELED);
+});
