@@ -9,6 +9,7 @@ import { copyImage } from './clipboard.js';
 
 const $ = (id) => document.getElementById(id);
 const KINDS = { viewport: '화면 캡처', full: '전체 캡처', element: '요소 캡처' };
+const KIND_SHORT = { viewport: '화면', full: '전체', element: '요소' }; // the kind in front of the size on a card
 const STAGES = { pick: '요소를 클릭하세요 (Esc로 취소)', expand: '스크롤 영역을 펼치는 중…', capture: '촬영 중…' };
 
 let settings;
@@ -80,6 +81,26 @@ function setRunning(value) {
 }
 
 // --- history list ------------------------------------------------------------------------------
+/** Only web and file addresses become links (never javascript: and the like). */
+function isLinkable(url) {
+  try { return ['http:', 'https:', 'file:'].includes(new URL(url).protocol); } catch { return false; }
+}
+
+/** Material Icons "open_in_new": the mark of a link to another page. */
+function externalIcon() {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', '14');
+  svg.setAttribute('height', '14');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('fill', 'currentColor');
+  path.setAttribute('d', 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z');
+  svg.append(path);
+  return svg;
+}
+
 function pageLabel(e) {
   try { return new URL(e.pageUrl).host || e.pageTitle; } catch { return e.pageTitle || ''; }
 }
@@ -99,13 +120,31 @@ function renderItem(e, index) {
   const meta = document.createElement('div');
   meta.className = 'meta';
   // the site address at the left, the size and the date at the right
-  const page = document.createElement('span');
+  // the address links to the page the shot was taken of, with its whole path and parameters
+  const page = document.createElement(isLinkable(e.pageUrl) ? 'a' : 'span');
   page.className = 'page';
-  page.textContent = pageLabel(e);
   page.title = e.pageUrl;
+  const label = document.createElement('span');
+  label.className = 'page__label';
+  label.textContent = pageLabel(e);
+  if (page.tagName === 'A') {
+    page.href = e.pageUrl;
+    page.target = '_blank';
+    page.rel = 'noreferrer';
+    page.append(externalIcon(), label); // the icon in front says it opens the page
+  } else {
+    page.append(label);
+  }
   const info = document.createElement('span');
   info.className = 'info';
-  info.textContent = `${e.width}×${e.height}px · ${new Date(e.createdAt).toLocaleString()}`;
+  // at the right: the kind and size on the first line (they alone set the width of this column, so
+  // the address is cut by them), the date on the second line, placed by position (it takes no width)
+  const size = document.createElement('span');
+  size.textContent = `${KIND_SHORT[e.kind] ?? e.kind} · ${e.width}×${e.height}px`;
+  const date = document.createElement('span');
+  date.className = 'date';
+  date.textContent = new Date(e.createdAt).toLocaleString();
+  info.append(size, date);
   meta.append(page, info);
 
   const actions = document.createElement('div');

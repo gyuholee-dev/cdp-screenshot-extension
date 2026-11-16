@@ -111,9 +111,14 @@ li:has(button.act-delete:hover:not(:disabled)) { border-color: #e6242a; }
 li.done { border-color: var(--accent); box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent) 25%, transparent); }
 li.removing { border-color: #e6242a; box-shadow: 0 0 4px 1px color-mix(in srgb, #e6242a 25%, transparent); }
 li img { display: block; max-width: 100%; margin: 0 auto 10px; border-radius: 8px; background: var(--field); }
-.meta { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 8px; font-size: 0.75rem; color: var(--sub); }
-.meta .page { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.meta .info { flex: none; white-space: nowrap; }
+/* two fixed lines (30px): the address and the kind + size on the first, the date on the second */
+.meta { position: relative; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; height: 30px; margin-bottom: 8px; font-size: 0.75rem; line-height: 15px; color: var(--sub); }
+.meta .page { display: inline-flex; align-items: center; gap: 4px; min-width: 0; font-size: 0.8125rem; /* 13px: a little larger than the rest of the line */ color: inherit; text-decoration: none; transition: color 0.15s ease; }
+.meta .page svg { flex: none; }
+.meta .page__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meta a.page:hover { color: var(--accent); text-decoration: none; } /* the font turns blue, no underline */
+.meta .info { flex: none; white-space: nowrap; } /* its width is the kind + size line only */
+.meta .info .date { position: absolute; right: 0; bottom: 0; white-space: nowrap; }
 .actions { display: flex; gap: 8px; align-items: center; }
 .actions .spacer { flex: 1; }
 li.new { animation: new-entry 1.4s ease-out; }
