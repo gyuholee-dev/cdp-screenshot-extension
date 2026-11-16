@@ -1,0 +1,275 @@
+{
+  "effects_note": {
+    "message": "You can customize the on-screen effect shown when a capture completes by entering CSS property values. After changing a value, be sure to check it with Test."
+  },
+  "shortcuts_note": {
+    "message": "You can customize the shortcuts at <a href=\"chrome://extensions/shortcuts\" id=\"shortcutsLink\">chrome://extensions/shortcuts</a>."
+  },
+  "footer_save": {
+    "message": "Save"
+  },
+  "footer_reset": {
+    "message": "Defaults"
+  },
+  "shortcut_panel": {
+    "message": "Open/close panel"
+  },
+  "capture_element": {
+    "message": "Element capture"
+  },
+  "capture_full": {
+    "message": "Full capture"
+  },
+  "capture_viewport": {
+    "message": "Screen capture"
+  },
+  "group_shortcuts": {
+    "message": "Shortcuts"
+  },
+  "clear_button": {
+    "message": "Clear"
+  },
+  "clear_label": {
+    "message": "History"
+  },
+  "retention_note": {
+    "message": "How long capture history is kept (in days). If set to 0, it is kept indefinitely until you delete it yourself."
+  },
+  "retention_label": {
+    "message": "Keep history for (days)"
+  },
+  "imageSize_label": {
+    "message": "Thumbnail size"
+  },
+  "imageSize_note": {
+    "message": "Maximum width of the thumbnails in the capture history (px). You can set it from 256px up to 1024px."
+  },
+  "group_history": {
+    "message": "History"
+  },
+  "dir_pick": {
+    "message": "Browse"
+  },
+  "dir_allow": {
+    "message": "Re-allow access"
+  },
+  "dir_label": {
+    "message": "Save location"
+  },
+  "afterAction_note": {
+    "message": "Sets what happens to a finished capture. With Save to folder, the image file is saved to your save location automatically."
+  },
+  "afterAction_history": {
+    "message": "Keep in history only"
+  },
+  "afterAction_save": {
+    "message": "Save to folder"
+  },
+  "afterAction_label": {
+    "message": "After capture"
+  },
+  "group_save": {
+    "message": "Save"
+  },
+  "effects_reset": {
+    "message": "Default"
+  },
+  "edge_test": {
+    "message": "Test"
+  },
+  "edge_label": {
+    "message": "Edge highlight"
+  },
+  "flash_test": {
+    "message": "Test"
+  },
+  "flash_label": {
+    "message": "Flash"
+  },
+  "group_effects": {
+    "message": "Capture effects"
+  },
+  "settle_note": {
+    "message": "Time to wait before the capture is taken (ms). If late-loading images or animations are cut off in the result, set a higher value."
+  },
+  "settle_label": {
+    "message": "Capture delay"
+  },
+  "format_label": {
+    "message": "Image format"
+  },
+  "depth_note": {
+    "message": "How many levels deep to look for scroll areas. Raise it if nested scroll areas are cut off in the capture."
+  },
+  "depth_label": {
+    "message": "Scroll detection depth"
+  },
+  "group_capture": {
+    "message": "Capture"
+  },
+  "settings_title": {
+    "message": "Settings"
+  },
+  "history_empty": {
+    "message": "No captures yet."
+  },
+  "alert_cancel": {
+    "message": "Cancel (Esc)"
+  },
+  "dir_placeholder": {
+    "message": "Downloads"
+  },
+  "edge_cssLabel": {
+    "message": "Edge highlight CSS"
+  },
+  "flash_cssLabel": {
+    "message": "Flash CSS"
+  },
+  "settings_back": {
+    "message": "Back"
+  },
+  "settings_open": {
+    "message": "Settings"
+  },
+  "capture_element_title": {
+    "message": "Capture a specified element"
+  },
+  "capture_full_title": {
+    "message": "Capture the whole page including scroll areas"
+  },
+  "capture_viewport_title": {
+    "message": "Capture the currently visible screen"
+  },
+  "kind_viewport": {
+    "message": "Screen capture"
+  },
+  "kind_full": {
+    "message": "Full capture"
+  },
+  "kind_element": {
+    "message": "Element capture"
+  },
+  "kindShort_viewport": {
+    "message": "Screen"
+  },
+  "kindShort_full": {
+    "message": "Full"
+  },
+  "kindShort_element": {
+    "message": "Element"
+  },
+  "stage_pick": {
+    "message": "Click the element to capture (Esc to cancel)"
+  },
+  "stage_expand": {
+    "message": "Expanding scroll areas…"
+  },
+  "stage_capture": {
+    "message": "Capturing…"
+  },
+  "done": {
+    "message": "{kind} complete · {width}×{height}px{took}"
+  },
+  "done_took": {
+    "message": " · {sec}s"
+  },
+  "act_copy": {
+    "message": "Copy"
+  },
+  "act_save": {
+    "message": "Save"
+  },
+  "act_delete": {
+    "message": "Delete"
+  },
+  "capturing": {
+    "message": "Capturing…"
+  },
+  "saved": {
+    "message": "Saved"
+  },
+  "clear_confirm": {
+    "message": "All capture history will be deleted. Continue?"
+  },
+  "clear_done": {
+    "message": "All capture history was deleted."
+  },
+  "note_saved": {
+    "message": "Saved: {path}"
+  },
+  "save_noPermission": {
+    "message": "Couldn't write to the selected folder, so the file was saved to Downloads instead. Re-allow access in Settings."
+  },
+  "save_fallback": {
+    "message": "Couldn't save to the selected folder, so the file was saved to Downloads instead."
+  },
+  "ext_name": {
+    "message": "CDP Screenshot"
+  },
+  "ext_description": {
+    "message": "https://github.com/gyuholee-dev/cdp-screenshot-extension"
+  },
+  "ext_actionTitle": {
+    "message": "Toggle CDP Screenshot panel"
+  },
+  "cmd_togglePanel": {
+    "message": "Toggle capture panel"
+  },
+  "error_TOO_LARGE": {
+    "message": "The image exceeds the maximum size ({limit}). Select a smaller element or use Screen capture."
+  },
+  "error_NO_ELEMENT": {
+    "message": "The element was not found or is not visible on the screen. Select an element that is visible on the screen."
+  },
+  "error_TIMEOUT": {
+    "message": "Capture canceled: no element was selected within {sec} seconds."
+  },
+  "error_DETACHED": {
+    "message": "The connection to the page was lost during the capture. Do not navigate away from or close the page until the capture finishes, and try again."
+  },
+  "error_NOT_ATTACHABLE": {
+    "message": "This page cannot be captured. If developer tools are open, try closing them. Chrome internal pages such as chrome:// addresses cannot be captured, so try on a regular web page."
+  },
+  "error_INVALID_OPTION": {
+    "message": "The capture settings are invalid. Check the values in Settings or press \"Defaults\"."
+  },
+  "error_CDP_ERROR": {
+    "message": "The browser couldn't process the capture request. Reload the page and try again."
+  },
+  "error_NO_TAB": {
+    "message": "No tab to capture was found. Select a tab with a web page open and try again."
+  },
+  "error_BUSY": {
+    "message": "This tab is already being captured. Try again when it finishes."
+  },
+  "error_NO_RESPONSE": {
+    "message": "The extension is not responding. Close the panel and open it again."
+  },
+  "error_UNKNOWN": {
+    "message": "Something went wrong and the capture failed. Try again in a moment."
+  },
+  "error_SAVE": {
+    "message": "Couldn't save. Check the permissions and free space of the save location."
+  },
+  "error_COPY": {
+    "message": "Couldn't copy the image. Click the panel once and try again."
+  },
+  "error_DELETE": {
+    "message": "Couldn't delete the history. Try again."
+  },
+  "error_DIR": {
+    "message": "Couldn't select the location. Try again."
+  },
+  "clear_stats": {
+    "message": "Screenshots: {count} · {size}"
+  },
+  "header_viewport": {
+    "message": "Screen"
+  },
+  "header_full": {
+    "message": "Full"
+  },
+  "header_element": {
+    "message": "Element"
+  }
+}

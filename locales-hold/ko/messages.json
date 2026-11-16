@@ -262,5 +262,14 @@
   },
   "clear_stats": {
     "message": "스크린샷 {count}개 · {size}"
+  },
+  "header_viewport": {
+    "message": "화면 캡처"
+  },
+  "header_full": {
+    "message": "전체 캡처"
+  },
+  "header_element": {
+    "message": "요소 캡처"
   }
 }
