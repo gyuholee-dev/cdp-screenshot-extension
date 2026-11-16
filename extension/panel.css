@@ -53,6 +53,7 @@ button:hover { background: light-dark(#cbcbcb, color-mix(in srgb, var(--btn) 50%
 button:active { background: light-dark(#bcbcbc, color-mix(in srgb, var(--btn) 25%, var(--surf))); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 button:disabled:hover, button:disabled:active { background: var(--btn); }
+button.small { padding: 4px 10px; font-size: 0.875rem; } /* the app's small button */
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primary:hover { background: light-dark(color-mix(in srgb, var(--accent) 95%, #000), color-mix(in srgb, var(--accent) 52%, #000)); }
 /* a button in its transient "done" state (just copied or deleted): the accent colour as the background, never as the font colour */
@@ -62,7 +63,7 @@ button.removing, button.removing:hover { background: #e6242a; border-color: #e62
 /* an icon alone: no fill, no border, a fill under the pointer */
 button.inline { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 26px; height: 26px; padding: 0; border: 0; background: none; font-size: 0.75rem; }
 button.inline:hover, button.inline:active { background: var(--fill-hover); }
-.btns { display: flex; gap: 8px; }
+.btns { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* a view: header, body, footer (settings only); only the body scrolls. Both views use the same header. */
 /* the two views side by side in a track that slides between them (as the app's views, _views.scss);
@@ -138,13 +139,19 @@ li.new { animation: new-entry 1.4s ease-out; }
 .fld:not(.fld--stack):not(:last-child) { border-bottom: 1px solid var(--row-line); }
 .fld__label { flex-grow: 0; flex-shrink: 1; margin: 0 15px 0 0; white-space: nowrap; }
 .fld--note { flex-wrap: wrap; padding: 4px 0 8px; }
+.fgroup > .fld--note:last-child { padding-bottom: 0; }
 .fld--note .fld__label { display: flex; align-items: center; min-height: 30px; }
 .fld__note { flex: 0 0 100%; margin: 0; }
 .fld__group { display: flex; align-items: center; }
 .fld--stack { display: block; padding: 10px 0 4px; min-height: 0; }
 .fld--stack:last-child { padding-bottom: 0; }
 .fld--stack .btns { margin-top: 8px; }
+/* the capture effects: one item = switch, note, CSS box and buttons; the line goes under the buttons */
+#effects .fld--note:has(+ .fld--stack) { border-bottom: 0; padding-bottom: 0; min-height: 0; } /* the CSS box sits close under its note */
+#effects .fld--stack:not(:last-child) { padding-bottom: 10px; border-bottom: 1px solid var(--row-line); }
 .fld--stack .sub { margin: 8px 0 0; }
+.err-msg { color: var(--err); }
+.err-msg:empty { display: none; } /* shown only while there is a message */
 /* a stacked field (as the app's path rows): the label, then the input with its button(s), then the note */
 .fld--stack > .fld__label { display: block; width: fit-content; margin: 0 0 6px; }
 .pr { display: flex; gap: 8px; }
@@ -203,5 +210,4 @@ input.sw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 
 kbd { font: 0.75rem ui-monospace, Menlo, monospace; color: var(--sub); }
 
-.err-msg { color: var(--err); }
 [hidden] { display: none !important; }

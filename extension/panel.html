@@ -40,11 +40,6 @@
     <main class="body">
       <section class="fgroup box">
         <div class="fgroup__head"><h2 class="fgroup__title" data-i18n="group.capture"></h2></div>
-        <div class="fld fld--note">
-          <label class="fld__label" for="depth" data-i18n="depth.label"></label>
-          <input id="depth" class="fld__text num" type="number" min="0" step="1">
-          <p class="fld__note sub" data-i18n="depth.note"></p>
-        </div>
         <div class="fld">
           <label class="fld__label" for="format" data-i18n="format.label"></label>
           <div class="fld__select">
@@ -57,36 +52,14 @@
           </div>
         </div>
         <div class="fld fld--note">
+          <label class="fld__label" for="depth" data-i18n="depth.label"></label>
+          <input id="depth" class="fld__text num" type="number" min="0" step="1">
+          <p class="fld__note sub" data-i18n="depth.note"></p>
+        </div>
+        <div class="fld fld--note">
           <label class="fld__label" for="settleMs" data-i18n="settle.label"></label>
           <input id="settleMs" class="fld__text num" type="number" min="0" step="50">
           <p class="fld__note sub" data-i18n="settle.note"></p>
-        </div>
-      </section>
-
-      <section class="fgroup box" id="effects">
-        <div class="fgroup__head">
-          <h2 class="fgroup__title" data-i18n="group.effects"></h2>
-          <p class="fgroup__note sub" data-i18n-html="effects.note"></p>
-        </div>
-        <div class="fld fld--note">
-          <label class="fld__label" for="flashOn" data-i18n="flash.label"></label>
-          <input type="checkbox" id="flashOn" class="sw">
-          <p class="fld__note sub" data-i18n="flash.note"></p>
-        </div>
-        <div class="fld fld--stack">
-          <textarea id="flashCss" class="fld__box" rows="2" spellcheck="false" data-i18n-aria-label="flash.cssLabel"></textarea>
-          <div class="btns"><button id="flashTest" data-i18n="flash.test"></button><button id="flashReset" data-i18n="effects.reset"></button></div>
-        </div>
-        <div class="fld fld--note">
-          <label class="fld__label" for="edgeOn" data-i18n="edge.label"></label>
-          <input type="checkbox" id="edgeOn" class="sw">
-          <p class="fld__note sub" data-i18n="edge.note"></p>
-        </div>
-        <div class="fld fld--stack">
-          <textarea id="edgeCss" class="fld__box" rows="3" spellcheck="false" data-i18n-aria-label="edge.cssLabel"></textarea>
-          <div class="btns"><button id="edgeTest" data-i18n="edge.test"></button><button id="edgeReset" data-i18n="effects.reset"></button></div>
-          <p id="effectMsg" class="sub err-msg" role="status"></p>
-          <p class="sub" data-i18n="effects.testNote"></p>
         </div>
       </section>
 
@@ -96,8 +69,8 @@
           <label class="fld__label" for="afterAction" data-i18n="afterAction.label"></label>
           <div class="fld__select">
             <select id="afterAction">
-              <option value="save" data-i18n="afterAction.save"></option>
               <option value="history" data-i18n="afterAction.history"></option>
+              <option value="save" data-i18n="afterAction.save"></option>
             </select>
             <svg class="chev" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 6l4.5 4.5L12.5 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
@@ -128,7 +101,33 @@
         </div>
         <div class="fld">
           <span class="fld__label" data-i18n="clear.label"></span>
-          <button id="clearAll" data-i18n="clear.button"></button>
+          <button id="clearAll" class="small" data-i18n="clear.button"></button>
+        </div>
+      </section>
+
+      <section class="fgroup box" id="effects">
+        <div class="fgroup__head">
+          <h2 class="fgroup__title" data-i18n="group.effects"></h2>
+          <p class="fgroup__note sub" data-i18n-html="effects.note"></p>
+        </div>
+        <div class="fld fld--note">
+          <label class="fld__label" for="flashOn" data-i18n="flash.label"></label>
+          <input type="checkbox" id="flashOn" class="sw">
+          <p class="fld__note sub" data-i18n="flash.note"></p>
+        </div>
+        <div class="fld fld--stack">
+          <textarea id="flashCss" class="fld__box" rows="2" spellcheck="false" data-i18n-aria-label="flash.cssLabel"></textarea>
+          <div class="btns"><button id="flashTest" data-i18n="flash.test"></button><button id="flashReset" data-i18n="effects.reset"></button></div>
+        </div>
+        <div class="fld fld--note">
+          <label class="fld__label" for="edgeOn" data-i18n="edge.label"></label>
+          <input type="checkbox" id="edgeOn" class="sw">
+          <p class="fld__note sub" data-i18n="edge.note"></p>
+        </div>
+        <div class="fld fld--stack">
+          <textarea id="edgeCss" class="fld__box" rows="3" spellcheck="false" data-i18n-aria-label="edge.cssLabel"></textarea>
+          <div class="btns"><button id="edgeTest" data-i18n="edge.test"></button><button id="edgeReset" data-i18n="effects.reset"></button></div>
+          <p id="effectMsg" class="sub err-msg" role="status"></p>
         </div>
       </section>
 
