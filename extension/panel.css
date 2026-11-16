@@ -21,14 +21,27 @@
   --row-h: 37px;
   --row-line: color-mix(in srgb, var(--line) 75%, transparent);
   --row-trim: 9px;
-  --header-h: 44px;
+  --header-h: 52px;
   --ring-fade: outline-color 0.15s;
 }
 * { box-sizing: border-box; }
+
+/* Scrollbars as in the Ollama Multi Manager (styles/_polish.scss): thin and quiet; on Windows and
+   Linux (panel.js sets data-platform) the arrows at the ends are taken off, which only a bar styled
+   by hand allows, and the room the bar takes comes out of the padding next to it (--sbw). */
+* { scrollbar-width: thin; scrollbar-color: light-dark(#b0b0b0, #4a4a4a) transparent; }
+html:is([data-platform=win], [data-platform=linux]) * { scrollbar-width: auto; scrollbar-color: auto; }
+html:is([data-platform=win], [data-platform=linux]) ::-webkit-scrollbar { width: 10px; height: 10px; }
+html:is([data-platform=win], [data-platform=linux]) ::-webkit-scrollbar-button { display: none; }
+html:is([data-platform=win], [data-platform=linux]) ::-webkit-scrollbar-track,
+html:is([data-platform=win], [data-platform=linux]) ::-webkit-scrollbar-corner { background: transparent; }
+html:is([data-platform=win], [data-platform=linux]) ::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 6px; background: light-dark(#b0b0b0, #4a4a4a); background-clip: content-box; }
+html:is([data-platform=win], [data-platform=linux]) ::-webkit-scrollbar-thumb:hover { background: light-dark(#8f8f8f, #6a6a6a); background-clip: content-box; }
 :where(button, input, select, textarea) { outline: 2px solid transparent; outline-offset: 2px; transition: var(--ring-fade); }
 :where(button, input, select, textarea):focus-visible { outline-color: var(--accent); }
-body { margin: 0; font: 0.875rem system-ui, sans-serif; background: var(--bg); color: var(--text); }
-h2, h3 { margin: 0; font-size: 1rem; font-weight: 500; }
+body { margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; font: 0.875rem system-ui, sans-serif; background: var(--bg); color: var(--text); }
+h1 { margin: 0; font-size: 1rem; font-weight: 500; white-space: nowrap; }
+h2 { margin: 0; font-size: 1rem; font-weight: 500; }
 code { font-size: 0.75rem; color: var(--sub); }
 .sub { color: var(--sub); font-size: 0.75rem; }
 .hint { color: var(--sub); font-size: 0.75rem; }
@@ -48,19 +61,42 @@ button.inline { display: inline-flex; align-items: center; justify-content: cent
 button.inline:hover, button.inline:active { background: var(--fill-hover); }
 .btns { display: flex; gap: 8px; }
 
-/* title rows */
-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; height: var(--header-h); padding: 0 12px; background: var(--bg); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 1; }
-.tools { display: flex; gap: 8px; }
-#settingsView > h3 { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; margin: 0; padding: 14px 16px 10px; line-height: 26px; background: var(--bg); }
-#settingsView > h3 .ttl { margin-left: 2px; }
-button.icon { background: transparent; border-color: transparent; padding: 4px 9px; font-size: 1rem; line-height: 1; }
-button.icon:hover { background: var(--fill-hover); }
+/* a view: header, body, footer (settings only); only the body scrolls. Both views use the same header. */
+/* the two views side by side in a track that slides between them (as the app's views, _views.scss);
+   it only slides while a view is being opened or closed (.views--slide), never on its own */
+.views { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; overflow: clip; }
+.views__track { display: flex; width: 200%; height: 100%; }
+.views--page > .views__track { transform: translateX(-50%); }
+.views--slide > .views__track { transition: transform 0.3s ease; }
+@media (prefers-reduced-motion: reduce) { .views--slide > .views__track { transition: none; } }
+.view { flex: 0 0 50%; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.hdr { flex: none; display: flex; align-items: center; gap: 8px; height: var(--header-h); padding: 0 12px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.hdr button { height: 30px; }
+.hdr h1 { margin-left: 2px; }
+.tools { display: flex; gap: 8px; flex: 1 1 auto; min-width: 0; }
+/* an icon-only button: the height of the others, so a square, with the same fill and border */
+button.sq { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; padding: 0; }
+.body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px; scrollbar-gutter: stable; padding-right: calc(12px - var(--sbw, 0px)); }
+.view > footer { flex: none; display: flex; justify-content: flex-end; align-items: center; gap: 8px; height: var(--header-h); padding: 0 12px; background: var(--bg); border-top: 1px solid var(--line); }
+.view > footer .sub { margin-right: auto; }
 
 /* main view */
-main { padding: 12px; }
-#status { margin: 0 0 12px; color: var(--sub); }
-#status.ok { color: var(--accent); }
-#status.err { color: var(--err); }
+/* the alert area (알림 영역): where the status and the cancel button of a capture show. It is not there
+   while nothing happens: it slides down from the top when a message comes (the list below moves with
+   it) and slides away when the message is gone. Accent colour behind white text so it is noticed at
+   once; a failure turns it red. */
+.alert { display: grid; grid-template-rows: 0fr; margin: 0; transition: grid-template-rows 0.25s ease, margin 0.25s ease; }
+.alert.show { grid-template-rows: 1fr; margin: 0 0 12px; }
+.alert__inner { min-height: 0; overflow: hidden; }
+.statusrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 46px; padding: 8px 12px; border-radius: 8px; background: var(--btn); color: var(--sub); transform: translateY(-100%); opacity: 0; transition: transform 0.25s ease, opacity 0.25s ease, background-color 0.2s, color 0.2s; }
+.alert.show .statusrow { transform: none; opacity: 1; }
+.statusrow.busy, .statusrow.ok { background: var(--accent); color: #fff; }
+.statusrow.err { background: var(--err); color: #fff; }
+.statusrow button { flex: none; background: rgba(0, 0, 0, 0.32); border-color: transparent; color: #fff; }
+.statusrow button:hover:not(:disabled) { background: rgba(0, 0, 0, 0.5); }
+.statusrow button:active:not(:disabled) { background: rgba(0, 0, 0, 0.5); }
+#status { margin: 0; color: inherit; }
+@media (prefers-reduced-motion: reduce) { .alert, .statusrow { transition: none; } }
 ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
 li { --surf: var(--card); background: var(--box); border: 1px solid transparent; border-radius: 12px; padding: 14px; }
 li.latest { border-color: var(--accent); }
@@ -81,7 +117,6 @@ li.new { animation: new-entry 1.4s ease-out; }
 @media (prefers-reduced-motion: reduce) { li.new { animation: none; } }
 
 /* settings: boxes of rows */
-.dbody { padding: 0 16px 72px; }
 .box { margin: 0 0 12px; padding: 14px; border-radius: 12px; background: var(--box); --surf: var(--card); }
 .fgroup__head { padding-bottom: 10px; border-bottom: 1px solid var(--row-line); }
 .fgroup__title { display: block; margin: 0; font-size: 1rem; font-weight: 500; }
@@ -125,7 +160,5 @@ input.sw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; 
 
 kbd { font: 0.75rem ui-monospace, Menlo, monospace; color: var(--sub); }
 
-#settingsView footer { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 10px 16px; background: var(--bg); border-top: 1px solid var(--row-line); }
-#settingsView footer .sub { margin-right: auto; }
 .err-msg { color: var(--err); }
 [hidden] { display: none !important; }

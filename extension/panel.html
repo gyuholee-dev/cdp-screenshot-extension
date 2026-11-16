@@ -7,28 +7,36 @@
   <link rel="stylesheet" href="panel.css">
 </head>
 <body>
-  <header id="mainHeader">
-    <div class="tools">
-      <button id="viewport" data-kind="viewport" title="보이는 화면">화면 캡처</button>
-      <button id="full" data-kind="full" title="스크롤 영역을 펼친 전체">전체 캡처</button>
-      <button id="element" data-kind="element" title="요소를 골라서">요소 캡처</button>
-    </div>
-    <button id="toSettings" class="icon" title="설정" aria-label="설정">⚙</button>
-  </header>
+  <div id="views" class="views">
+  <div class="views__track">
+  <div id="mainView" class="view">
+    <header class="hdr">
+      <div class="tools">
+        <button id="viewport" data-kind="viewport" title="보이는 화면">화면 캡처</button>
+        <button id="full" data-kind="full" title="스크롤 영역을 펼친 전체">전체 캡처</button>
+        <button id="element" data-kind="element" title="요소를 골라서">요소 캡처</button>
+      </div>
+      <button id="toSettings" class="sq" title="환경설정" aria-label="환경설정"><svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+    </header>
 
-  <main id="mainView">
-    <p id="status" role="status">대기 중</p>
-    <ul id="list"></ul>
-    <p id="empty" class="hint">아직 캡처한 것이 없습니다.</p>
-  </main>
+    <main id="mainBody" class="body">
+      <div id="alert" class="alert" inert>
+        <div class="alert__inner">
+          <div class="statusrow"><p id="status" role="status"></p><button id="cancel" hidden>취소 (Esc)</button></div>
+        </div>
+      </div>
+      <ul id="list"></ul>
+      <p id="empty" class="hint">아직 캡처한 것이 없습니다.</p>
+    </main>
+  </div>
 
-  <div id="settingsView" hidden>
-    <h3>
-      <span class="ttl">설정</span>
-      <button id="toMain" class="inline" title="닫기" aria-label="닫기">✕</button>
-    </h3>
+  <div id="settingsView" class="view" inert>
+    <header class="hdr">
+      <button id="toMain" class="sq" title="뒤로" aria-label="뒤로"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <h1>환경설정</h1>
+    </header>
 
-    <div class="dbody">
+    <main class="body">
       <section class="fgroup box">
         <div class="fgroup__head"><h2 class="fgroup__title">캡처</h2></div>
         <div class="fld fld--note">
@@ -129,13 +137,15 @@
           <p class="fld__note sub"><code>chrome://extensions/shortcuts</code>에서 바꿉니다. 컨텍스트 메뉴(CDP Screenshot 하위 메뉴)로도 같은 캡처를 합니다. 결과는 패널의 기록에 쌓입니다.</p>
         </div>
       </section>
-    </div>
+    </main>
 
     <footer>
       <span id="saved" class="sub" role="status"></span>
       <button id="resetAll">기본설정</button>
       <button id="save" class="primary">저장</button>
     </footer>
+  </div>
+  </div>
   </div>
 
   <script type="module" src="panel.js"></script>

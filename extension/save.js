@@ -49,7 +49,7 @@ export async function saveBlob(blob, filename, { dirHandle, chromeApi = globalTh
         await writeToFolder(dirHandle, blob, filename);
         return { where: 'folder', path: `${dirHandle.name}/${filename}` };
       }
-      note = '선택한 폴더에 쓸 권한이 없어 다운로드 폴더에 저장했습니다(설정에서 폴더를 다시 허용하세요).';
+      note = '선택한 폴더에 쓸 권한이 없어 다운로드 폴더에 저장했습니다(환경설정에서 폴더를 다시 허용하세요).';
     } catch (e) {
       note = `선택한 폴더에 저장하지 못해 다운로드 폴더에 저장했습니다: ${e?.message ?? e}`;
     }

@@ -19,17 +19,21 @@ export const EFFECT_DEFAULTS = Object.freeze({
   flash: Object.freeze({ enabled: true, css: 'background: #ffffff;' }),
   edge: Object.freeze({
     enabled: true,
-    css: 'box-shadow: inset 0 0 0 5px rgba(41, 121, 255, 0.95), inset 0 0 36px 8px rgba(41, 121, 255, 0.55);',
+    css: 'box-shadow: inset 0 0 0 2px rgba(41, 121, 255, 0.95), inset 0 0 18px 4px rgba(41, 121, 255, 0.55);',
   }),
 });
 const MAX_CSS_LENGTH = 2000;
+// Earlier defaults, saved with the settings by the panel: not a choice of the user, so they follow the new default.
+const OLD_DEFAULT_CSS = new Set([
+  'box-shadow: inset 0 0 0 5px rgba(41, 121, 255, 0.95), inset 0 0 36px 8px rgba(41, 121, 255, 0.55);',
+]);
 
 function normalizeEffect(raw, def) {
   const r = raw && typeof raw === 'object' ? raw : {};
   const css = typeof r.css === 'string' ? r.css.trim() : '';
   return {
     enabled: typeof r.enabled === 'boolean' ? r.enabled : def.enabled,
-    css: css && css.length <= MAX_CSS_LENGTH ? css : def.css,
+    css: css && css.length <= MAX_CSS_LENGTH && !OLD_DEFAULT_CSS.has(css) ? css : def.css,
   };
 }
 

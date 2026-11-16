@@ -5,6 +5,7 @@ import { normalizeSettings, SETTING_DEFAULTS, AFTER_ACTIONS, loadSettings, saveS
 import { buildFilename, saveBlob, DEFAULT_SUBFOLDER } from '../extension/save.js';
 import { expiredIds } from '../extension/history.js';
 import { captureFlow } from '../extension/capture-flow.js';
+import { createPickGuard } from '../extension/pick-guard.js';
 import { CaptureError, ErrorCode } from '../core/index.js';
 
 const root = new URL('../', import.meta.url);
@@ -12,10 +13,11 @@ const manifest = JSON.parse(readFileSync(new URL('manifest.json', root), 'utf8')
 
 test('manifest: MV3, side panel + context menu, required permissions, referenced files exist', () => {
   assert.equal(manifest.manifest_version, 3);
-  for (const p of ['debugger', 'downloads', 'storage', 'unlimitedStorage', 'sidePanel', 'contextMenus', 'activeTab', 'scripting']) {
+  for (const p of ['debugger', 'downloads', 'storage', 'unlimitedStorage', 'sidePanel', 'contextMenus']) {
     assert.ok(manifest.permissions.includes(p), p);
   }
   assert.ok(!manifest.permissions.includes('clipboardWrite'), 'copying is a click in the panel: no extra permission');
+  for (const p of ['scripting', 'activeTab']) assert.ok(!manifest.permissions.includes(p), `${p}: nothing is injected into pages any more (the effect goes through the debugger)`);
   assert.equal(manifest.background.type, 'module');
   assert.ok(existsSync(new URL(manifest.background.service_worker, root)));
   assert.ok(existsSync(new URL(manifest.side_panel.default_path, root)));
@@ -23,6 +25,14 @@ test('manifest: MV3, side panel + context menu, required permissions, referenced
   assert.equal(manifest.action.default_popup, undefined); // the icon opens/closes the panel
   assert.deepEqual(Object.keys(manifest.commands).sort(), ['element', 'full', 'toggle-panel', 'viewport']);
   assert.ok(Number(manifest.minimum_chrome_version) >= 141); // sidePanel.close
+});
+
+test('manifest: the camera icon files exist in every size', () => {
+  for (const size of ['16', '32', '48', '128']) {
+    assert.ok(existsSync(new URL(manifest.icons[size], root)), `icons.${size}`);
+  }
+  for (const size of ['16', '32']) assert.ok(existsSync(new URL(manifest.action.default_icon[size], root)), `default_icon.${size}`);
+  assert.ok(existsSync(new URL('extension/icons/camera.svg', root))); // the source the PNGs are drawn from
 });
 
 test('manifest: no network listening surface', () => {
@@ -52,6 +62,13 @@ test('normalizeSettings: effects can be switched off and restyled; bad values fa
   assert.deepEqual(n.effects.flash, { enabled: false, css: 'background: #fff;' });
   assert.deepEqual(n.effects.edge, SETTING_DEFAULTS.effects.edge); // not a boolean / empty -> default
   assert.equal(normalizeSettings({ effects: { edge: { css: 'x'.repeat(5000) } } }).effects.edge.css, SETTING_DEFAULTS.effects.edge.css);
+});
+
+test('normalizeSettings: a saved earlier default edge style follows the new default, a user style stays', () => {
+  const old = 'box-shadow: inset 0 0 0 5px rgba(41, 121, 255, 0.95), inset 0 0 36px 8px rgba(41, 121, 255, 0.55);';
+  assert.equal(normalizeSettings({ effects: { edge: { enabled: true, css: old } } }).effects.edge.css, SETTING_DEFAULTS.effects.edge.css);
+  assert.match(SETTING_DEFAULTS.effects.edge.css, /inset 0 0 0 2px .* 18px 4px/);
+  assert.equal(normalizeSettings({ effects: { edge: { css: 'outline: 3px solid red;' } } }).effects.edge.css, 'outline: 3px solid red;');
 });
 
 test('normalizeSettings: values of earlier builds are converted (copying is no longer automatic)', () => {
@@ -158,7 +175,6 @@ function flowDeps(overrides = {}) {
     getDirHandle: async () => undefined,
     saveBlob: async (blob, filename) => { calls.push(['save', filename]); return { where: 'downloads', path: filename }; },
     notifyPanel: (m) => calls.push(['notify', m.type]),
-    showToast: async (tabId, text, isError) => { calls.push(['toast', tabId, text, isError]); return true; },
     ...overrides.deps,
   };
   return deps;
@@ -171,7 +187,7 @@ test('captureFlow (panel): history only by default; never touches the clipboard'
   assert.deepEqual(d.calls.map((c) => c[0]), ['capture', 'notify', 'prune', 'notify']); // progress, then history-changed
   assert.equal(d.entries.get('e1').pageUrl, 'http://192.168.50.22:9100/');
   assert.equal(d.entries.get('e1').blob.type, 'image/png');
-  assert.ok(!d.calls.some((c) => c[0] === 'toast' || c[0] === 'save'));
+  assert.ok(!d.calls.some((c) => c[0] === 'save'));
 });
 
 test('captureFlow: "save" stores the shot and writes the result onto the entry', async () => {
@@ -187,29 +203,62 @@ test('captureFlow: "save" stores the shot and writes the result onto the entry',
   assert.equal(failing.entries.get('e1').note, f.note);
 });
 
-test('captureFlow (menu): the page gets a toast; element shots bring the page window forward first', async () => {
-  const d = flowDeps();
-  await captureFlow({ kind: 'element', tab: { id: 9 }, origin: 'menu' }, d);
-  assert.deepEqual(d.calls[0], ['focus', 9]);
-  const toast = d.calls.find((c) => c[0] === 'toast');
-  assert.equal(toast[1], 9);
-  assert.match(toast[2], /요소 캡처 완료 · 30×20px · \d+\.\d초 · 기록에 저장됨/);
-  assert.match(toast[2], /복사 버튼/);
-  assert.equal(toast[3], false);
+test('captureFlow: the same notification whoever started it; element shots bring the page window forward first', async () => {
+  const seen = [];
+  for (const origin of ['panel', 'menu']) {
+    const d = flowDeps();
+    d.notifyPanel = (m) => seen.push([origin, m]);
+    await captureFlow({ kind: 'element', tab: { id: 9, windowId: 3 }, origin }, d);
+    assert.deepEqual(d.calls[0], ['focus', 9]);
+  }
+  const done = seen.filter(([, m]) => m.type === 'history-changed');
+  assert.equal(done.length, 2);
+  const [a, b] = done.map(([, m]) => m);
+  assert.deepEqual([a.kind, a.width, a.height, typeof a.ms], ['element', 30, 20, 'number']);
+  assert.deepEqual(Object.keys(a).sort(), Object.keys(b).sort()); // nothing differs by origin except the entry id
 });
 
-test('captureFlow: failures toast on the page (menu) but not a cancel; errors still propagate', async () => {
-  const boom = flowDeps({ deps: { runCapture: async () => { throw new Error('attach failed'); } } });
-  await assert.rejects(captureFlow({ kind: 'viewport', tab: { id: 1 }, origin: 'menu' }, boom), /attach failed/);
-  assert.deepEqual(boom.calls.find((c) => c[0] === 'toast').slice(2), ['캡처 실패 · attach failed', true]);
+test('captureFlow: a failure of a capture not started from the panel is told to the panel; a cancel is not', async () => {
+  const msgs = (origin, err) => {
+    const sent = [];
+    const d = flowDeps({ deps: { runCapture: async () => { throw err; } } });
+    d.notifyPanel = (m) => sent.push(m);
+    return captureFlow({ kind: 'viewport', tab: { id: 1, windowId: 4 }, origin }, d).catch(() => sent);
+  };
+  assert.deepEqual((await msgs('menu', new Error('attach failed'))).filter((m) => m.type === 'capture-failed'), [{ type: 'capture-failed', message: 'attach failed', windowId: 4 }]);
+  assert.equal((await msgs('menu', new CaptureError(ErrorCode.CANCELED, 'c'))).filter((m) => m.type === 'capture-failed').length, 0);
+  assert.equal((await msgs('panel', new Error('x'))).filter((m) => m.type === 'capture-failed').length, 0); // it gets the error as its answer
+  await assert.rejects(captureFlow({ kind: 'viewport', tab: { id: 1 }, origin: 'menu' }, flowDeps({ deps: { runCapture: async () => { throw new Error('boom'); } } })), /boom/);
+});
 
-  const canceled = flowDeps({ deps: { runCapture: async () => { throw new CaptureError(ErrorCode.CANCELED, 'canceled'); } } });
-  await assert.rejects(captureFlow({ kind: 'element', tab: { id: 1 }, origin: 'menu' }, canceled), /canceled/);
-  assert.ok(!canceled.calls.some((c) => c[0] === 'toast'));
+test('pick guard: leaving the page ends the pick, but not during the grace period or for other tabs', () => {
+  let clock = 1000;
+  const g = createPickGuard({ graceMs: 400, now: () => clock });
+  const a = g.add(1, 10);
+  const b = g.add(2, 10);
+  assert.equal(g.cancelWhere(() => true), 0); // nobody is picking yet
+  g.picking(1);
+  clock += 100;
+  assert.equal(g.cancelWhere((r) => r.windowId === 10), 0); // inside the grace period: the start's own focus changes
+  assert.equal(a.signal.aborted, false);
+  clock += 400;
+  assert.equal(g.cancelWhere((r) => r.windowId === 10), 1); // only the tab that is picking
+  assert.equal(a.signal.aborted, true);
+  assert.equal(b.signal.aborted, false);
+  g.remove(1);
+  assert.equal(g.cancelWhere(() => true), 0);
+  // an explicit cancel is immediate and by window
+  g.picking(2);
+  assert.equal(g.cancelWindow(10), 1);
+  assert.equal(b.signal.aborted, true);
+});
 
-  const fromPanel = flowDeps({ deps: { runCapture: async () => { throw new Error('x'); } } });
-  await assert.rejects(captureFlow({ kind: 'viewport', tab: { id: 1 }, origin: 'panel' }, fromPanel), /x/);
-  assert.ok(!fromPanel.calls.some((c) => c[0] === 'toast')); // the panel shows the error itself
+test('captureFlow hands the cancel signal to the capture', async () => {
+  const ctrl = new AbortController();
+  let seen;
+  const d = flowDeps({ deps: { runCapture: async (_id, _kind, opts) => { seen = opts.signal; return { bytes: new Uint8Array([1]), mime: 'image/png', width: 1, height: 1 }; } } });
+  await captureFlow({ kind: 'element', tab: { id: 1 }, origin: 'panel', signal: ctrl.signal }, d);
+  assert.equal(seen, ctrl.signal);
 });
 
 test('captureFlow reports how long the capture took', async () => {
@@ -225,17 +274,6 @@ test('feedback: the effect function is self-contained and only uses CSP-safe API
   assert.ok(!/createElement\(['"]style['"]\)/.test(renderEffect.toString()));
   // the manifest and menus use the agreed terms
   assert.deepEqual(manifest.commands.viewport.description, '화면 캡처'); // a <style> element can be blocked by the page's CSP
-});
-
-test('toast: render function is self-contained; showToast is best effort', async () => {
-  const { renderToast, showToast } = await import('../extension/toast.js');
-  assert.doesNotThrow(() => new Function(`return (${renderToast.toString()})`));
-  const calls = [];
-  const ok = { scripting: { executeScript: async (o) => { calls.push(o); return [{ result: true }]; } } };
-  assert.equal(await showToast(3, 'hi', false, ok), true);
-  assert.deepEqual([calls[0].target.tabId, calls[0].args], [3, ['hi', false]]);
-  const blocked = { scripting: { executeScript: async () => { throw new Error('Cannot access a chrome:// URL'); } } };
-  assert.equal(await showToast(3, 'hi', true, blocked), false);
 });
 
 test('focusTab: focuses the window, activates the tab, never throws', async () => {

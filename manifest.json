@@ -10,16 +10,18 @@
     "storage",
     "unlimitedStorage",
     "sidePanel",
-    "contextMenus",
-    "activeTab",
-    "scripting"
+    "contextMenus"
   ],
   "background": {
     "service_worker": "extension/service-worker.js",
     "type": "module"
   },
   "action": {
-    "default_title": "CDP Screenshot 패널 열기/닫기"
+    "default_title": "CDP Screenshot 패널 열기/닫기",
+    "default_icon": {
+      "16": "extension/icons/icon-16.png",
+      "32": "extension/icons/icon-32.png"
+    }
   },
   "side_panel": {
     "default_path": "extension/panel.html"
@@ -49,5 +51,11 @@
       },
       "description": "캡처 패널 열기/닫기"
     }
+  },
+  "icons": {
+    "16": "extension/icons/icon-16.png",
+    "32": "extension/icons/icon-32.png",
+    "48": "extension/icons/icon-48.png",
+    "128": "extension/icons/icon-128.png"
   }
 }

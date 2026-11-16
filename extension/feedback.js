@@ -28,7 +28,7 @@ export function renderEffect(variant, config) {
   };
 
   let longest = 0;
-  const edgeCss = ok ? config?.edge?.css : 'box-shadow: inset 0 0 0 5px rgba(229,56,61,0.95), inset 0 0 36px 8px rgba(229,56,61,0.55);';
+  const edgeCss = ok ? config?.edge?.css : 'box-shadow: inset 0 0 0 2px rgba(229,56,61,0.95), inset 0 0 18px 4px rgba(229,56,61,0.55);';
   if ((ok ? config?.edge?.enabled : true) && edgeCss) {
     const ms = ok ? 650 : 1300;
     longest = Math.max(longest, ms);

@@ -5,16 +5,15 @@
 import { ErrorCode } from '../core/index.js';
 import { buildFilename } from './save.js';
 
-const KIND_LABEL = { viewport: '화면 캡처', full: '전체 캡처', element: '요소 캡처' };
 
 /**
- * @param {{kind: 'viewport'|'full'|'element', tab: {id: number, url?: string, title?: string}, origin: 'panel'|'menu'}} req
+ * @param {{kind: 'viewport'|'full'|'element', tab: {id: number, url?: string, title?: string}, origin: 'panel'|'menu', signal?: AbortSignal}} req
  * @param {object} deps runCapture, loadSettings, focusTab, history{addEntry,updateEntry,pruneExpired},
- *   getDirHandle, saveBlob, notifyPanel, showToast
+ *   getDirHandle, saveBlob, notifyPanel
  * @returns {Promise<{id: string, note: string, ms: number}>} ms = time from the request to the saved entry
  */
-export async function captureFlow({ kind, tab, origin }, deps) {
-  const { runCapture, loadSettings, focusTab, history, getDirHandle, saveBlob, notifyPanel, showToast } = deps;
+export async function captureFlow({ kind, tab, origin, signal }, deps) {
+  const { runCapture, loadSettings, focusTab, history, getDirHandle, saveBlob, notifyPanel } = deps;
   const now = deps.now ?? (() => Date.now());
   const started = now();
   try {
@@ -24,7 +23,8 @@ export async function captureFlow({ kind, tab, origin }, deps) {
       depth: settings.depth,
       format: settings.format,
       settleMs: settings.settleMs,
-      reportProgress: ({ stage }) => notifyPanel({ type: 'progress', stage }),
+      signal, // lets the host cancel an element pick (the key press may go to the host's UI, not to the page)
+      reportProgress: ({ stage }) => notifyPanel({ type: 'progress', stage, windowId: tab.windowId }),
     });
 
     const blob = new Blob([result.bytes], { type: result.mime });
@@ -49,20 +49,15 @@ export async function captureFlow({ kind, tab, origin }, deps) {
       await history.updateEntry(entry.id, { note });
     }
     await history.pruneExpired(settings.retentionDays);
-    notifyPanel({ type: 'history-changed', id: entry.id });
     const ms = now() - started;
-
-    if (origin === 'menu') {
-      await showToast(
-        tab.id,
-        `${KIND_LABEL[kind]} 완료 · ${result.width}×${result.height}px · ${(ms / 1000).toFixed(1)}초 · 기록에 저장됨${note ? `\n${note}` : ''}\n복사는 패널 기록의 복사 버튼으로`,
-        false,
-      );
-    }
+    // The same details whatever started the capture: the panel words its message from them.
+    notifyPanel({ type: 'history-changed', id: entry.id, kind, width: result.width, height: result.height, ms });
     return { id: entry.id, note, ms };
   } catch (e) {
-    if (origin === 'menu' && e?.code !== ErrorCode.CANCELED) {
-      await showToast(tab.id, `캡처 실패 · ${e?.message ?? e}`, true);
+    // A capture that was not started from the panel has no one waiting for an answer: tell the panel
+    // (the panel's own button gets the error as its answer). A cancel is not a failure.
+    if (origin !== 'panel' && e?.code !== ErrorCode.CANCELED) {
+      notifyPanel({ type: 'capture-failed', message: e?.message ?? String(e), windowId: tab.windowId });
     }
     throw e;
   }

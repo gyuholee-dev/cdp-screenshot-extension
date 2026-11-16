@@ -3,24 +3,29 @@ import { ErrorCode } from '../core/index.js';
 import { loadSettings } from './settings.js';
 import * as history from './history.js';
 import { saveBlob } from './save.js';
-import { showToast } from './toast.js';
 import { focusTab } from './focus.js';
 import { captureFlow } from './capture-flow.js';
 import { renderEffect } from './feedback.js';
+import { createPickGuard } from './pick-guard.js';
 
 const MENU = [
   { id: 'viewport', title: '화면 캡처' },
   { id: 'full', title: '전체 캡처' },
   { id: 'element', title: '요소 캡처' },
 ];
+// Where the menu shows: web pages only. Not in this extension's own pages (the side panel is a page
+// too, and a right click there must not offer a capture), nor on chrome:// pages that cannot be captured.
+const MENU_PAGES = ['http://*/*', 'https://*/*', 'file:///*'];
 const busy = new Set(); // one capture per tab at a time
+const guard = createPickGuard(); // ends an element pick when the user leaves the page
+const picking = new Set(); // windowIds whose element pick waits for the user: every panel of that window shows it
 const openPanels = new Map(); // windowId -> number of connected panel instances
 
 // --- context menu (also works in popup windows, which have no side panel) ----------------------
 function createMenus() {
   chrome.contextMenus.removeAll(() => {
     const log = () => { if (chrome.runtime.lastError) console.error('[cdp-screenshot] menu:', chrome.runtime.lastError.message); };
-    for (const m of MENU) chrome.contextMenus.create({ id: m.id, title: m.title, contexts: ['all'] }, log);
+    for (const m of MENU) chrome.contextMenus.create({ id: m.id, title: m.title, contexts: ['all'], documentUrlPatterns: MENU_PAGES }, log);
   });
 }
 chrome.runtime.onInstalled.addListener(createMenus);
@@ -35,6 +40,7 @@ chrome.runtime.onConnect.addListener((port) => {
     if (msg?.type !== 'hello') return;
     windowId = msg.windowId;
     openPanels.set(windowId, (openPanels.get(windowId) ?? 0) + 1);
+    if (picking.has(windowId)) port.postMessage({ type: 'progress', stage: 'pick', windowId }); // a panel opened meanwhile
   });
   port.onDisconnect.addListener(() => {
     if (windowId == null) return;
@@ -67,14 +73,20 @@ async function showEffect({ cdp, ok, error }) {
 }
 
 const deps = {
-  runCapture: (tabId, kind, opts) => runCapture(tabId, kind, opts, chrome, { afterCapture: showEffect }),
+  runCapture: (tabId, kind, opts) => runCapture(tabId, kind, {
+    ...opts,
+    reportProgress: (info) => { if (info.stage === 'pick') guard.picking(tabId); opts.reportProgress?.(info); },
+  }, chrome, { afterCapture: showEffect }),
   loadSettings,
   focusTab,
   history,
   getDirHandle: () => history.kvGet('saveDir'),
   saveBlob,
-  showToast,
-  notifyPanel: (message) => chrome.runtime.sendMessage({ target: 'panel', ...message }).catch(() => { /* panel closed */ }),
+  notifyPanel: (message) => {
+    if (message.type === 'progress' && message.stage === 'pick') picking.add(message.windowId);
+    if (message.type === 'capture-ended') picking.delete(message.windowId);
+    return chrome.runtime.sendMessage({ target: 'panel', ...message }).catch(() => { /* panel closed */ });
+  },
 };
 
 /** Guard: one capture per tab. */
@@ -82,16 +94,20 @@ async function capture(kind, tab, origin) {
   if (!tab?.id) throw Object.assign(new Error('촬영할 탭을 찾지 못했습니다.'), { code: 'NO_TAB' });
   if (busy.has(tab.id)) throw Object.assign(new Error('이 탭은 이미 촬영 중입니다.'), { code: 'BUSY' });
   busy.add(tab.id);
+  const controller = guard.add(tab.id, tab.windowId);
   try {
-    return await captureFlow({ kind, tab, origin }, deps);
+    return await captureFlow({ kind, tab, origin, signal: controller.signal }, deps);
   } finally {
     busy.delete(tab.id);
+    guard.remove(tab.id);
+    deps.notifyPanel({ type: 'capture-ended', windowId: tab.windowId }); // done, failed or cancelled: drop "pick an element"
   }
 }
 
 const logFailure = (e) => { if (e?.code !== ErrorCode.CANCELED) console.error('[cdp-screenshot]', e); };
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.pageUrl?.startsWith('chrome-extension://')) return; // (never offered there; a stale menu is ignored)
   capture(String(info.menuItemId), tab, 'menu').catch(logFailure);
 });
 
@@ -105,6 +121,12 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   const t = tab ?? (await chrome.tabs.query({ active: true, lastFocusedWindow: true }))[0];
   capture(command, t, 'menu').catch(logFailure);
 });
+
+// Leaving the page ends an element pick: another tab, another window or app, a navigation, or a
+// click into this extension's own panel (it tells the worker when it gets the focus).
+chrome.tabs.onActivated.addListener(({ tabId, windowId }) => guard.cancelWhere((r) => r.windowId === windowId && r.tabId !== tabId));
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => { if (changeInfo.status === 'loading') guard.cancelWhere((r) => r.tabId === tabId); });
+chrome.windows.onFocusChanged.addListener((windowId) => guard.cancelWhere((r) => r.windowId !== windowId)); // (WINDOW_ID_NONE: another app)
 
 // The settings view's test buttons: play one effect on the page now (it attaches for a moment).
 async function testEffect(windowId, which, css) {
@@ -123,6 +145,15 @@ async function testEffect(windowId, which, css) {
 
 // The panel's own buttons.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.target === 'worker' && msg.type === 'cancel') {
+    guard.cancelWindow(msg.windowId); // the panel's own button or Esc
+    sendResponse({ ok: true });
+    return false;
+  }
+  if (msg?.target === 'worker' && (msg.type === 'panel-focused' || msg.type === 'panel-activity')) {
+    guard.cancelWhere((r) => r.windowId === msg.windowId);
+    return false;
+  }
   if (msg?.target === 'worker' && msg.type === 'effect-test') {
     testEffect(msg.windowId, msg.which, msg.css).then(
       () => sendResponse({ ok: true }),
