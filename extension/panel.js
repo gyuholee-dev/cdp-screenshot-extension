@@ -3,13 +3,14 @@
 // of an entry: the click gives the panel focus and a user gesture, so it behaves the same whatever
 // page the shot is from and however the capture was started.
 import { AFTER_ACTIONS, EFFECT_DEFAULTS, SETTING_DEFAULTS, loadSettings, saveSettings } from './settings.js';
-import { clearEntries, deleteEntry, kvGet, kvSet, listEntries, pruneExpired } from './history.js';
+import { clearEntries, deleteEntry, kvGet, kvSet, listEntries, pruneExpired, updateEntry } from './history.js';
 import { buildFilename, saveBlob } from './save.js';
 import { copyImage } from './clipboard.js';
 import { formatBytes, formatDate } from './format.js';
 import { applyDom, t } from './i18n.js';
 import { describeError } from './errors.js';
 import { isTabCapturable } from './capturable.js';
+import { makeThumb } from './thumb.js';
 
 const $ = (id) => document.getElementById(id);
 const STAGES = ['pick', 'expand', 'capture']; // progress stages: the text is t(`stage.${stage}`)
@@ -18,7 +19,9 @@ let settings;
 let windowId;
 let running = false;
 let pickActive = false; // an element pick waits in this window, started from anywhere (panel, menu, shortcut)
-let urls = [];
+const cards = new Map(); // entry id -> its card (<li>): a card is made once and kept while its entry exists
+const thumbUrls = new Map(); // entry id -> the object URL of the image its card shows
+const entryOfImg = new WeakMap(); // a card's <img> -> its entry
 const fresh = new Set(); // entries added since the last render: highlighted once
 
 // --- platform and scrollbar width (the stylesheet draws the scrollbars like the app's) ------------
@@ -124,11 +127,13 @@ function renderItem(e, index) {
   li.className = fresh.has(e.id) ? 'new' : '';
 
   const img = document.createElement('img');
-  const url = URL.createObjectURL(e.blob);
-  urls.push(url);
-  img.src = url;
   img.alt = '';
-  img.loading = 'lazy';
+  img.decoding = 'async';
+  // the box comes from the entry's own size: the card keeps its height while the thumbnail is not made yet
+  img.style.aspectRatio = `${e.width} / ${e.height}`;
+  img.style.width = `min(100%, ${e.width}px)`;
+  entryOfImg.set(img, e);
+  thumbObserver().observe(img);
 
   const meta = document.createElement('div');
   meta.className = 'meta';
@@ -177,14 +182,92 @@ function renderItem(e, index) {
   return li;
 }
 
+// --- thumbnails ---------------------------------------------------------------------------------
+// A card shows the entry's thumbnail (history.js keeps it with the entry). One that has none yet (a shot
+// taken while the panel was closed, or one from before thumbnails) is made when its card comes near
+// the screen, one at a time, and kept. The shot itself is what Copy and Save use.
+function showImage(img, id, blob) {
+  URL.revokeObjectURL(thumbUrls.get(id));
+  const url = URL.createObjectURL(blob);
+  thumbUrls.set(id, url);
+  img.src = url;
+}
+
+const thumbQueue = [];
+const thumbQueued = new Set();
+let thumbBusy = false;
+
+async function drainThumbs() {
+  if (thumbBusy) return;
+  thumbBusy = true;
+  while (thumbQueue.length) {
+    const { e, img } = thumbQueue.shift();
+    try {
+      const thumb = await makeThumb(e.blob, e.width, e.height);
+      e.thumb = thumb;
+      if (await updateEntry(e.id, { thumb })) {
+        if (img.isConnected) showImage(img, e.id, thumb);
+        renderStats();
+      }
+    } catch (err) {
+      console.warn('[cdp-screenshot] thumbnail failed:', err);
+      if (img.isConnected) showImage(img, e.id, e.blob); // the shot itself, so the card is not empty
+    } finally {
+      thumbQueued.delete(e.id);
+    }
+  }
+  thumbBusy = false;
+}
+
+function ensureThumb(img) {
+  const e = entryOfImg.get(img);
+  if (!e) return;
+  if (e.thumb) { showImage(img, e.id, e.thumb); return; }
+  if (thumbQueued.has(e.id)) return;
+  thumbQueued.add(e.id);
+  thumbQueue.push({ e, img });
+  drainThumbs();
+}
+
+let observer;
+function thumbObserver() {
+  observer ??= new IntersectionObserver((hits) => {
+    for (const hit of hits) {
+      if (!hit.isIntersecting) continue;
+      observer.unobserve(hit.target);
+      ensureThumb(hit.target);
+    }
+  }, { root: $('mainBody'), rootMargin: '400px 0px' });
+  return observer;
+}
+
+/** What the history holds: how many images and their total size (the shots and their thumbnails). */
+function showStats(entries) {
+  const bytes = entries.reduce((sum, e) => sum + (e.blob?.size ?? 0) + (e.thumb?.size ?? 0), 0);
+  $('historyStats').textContent = t('clear.stats', { count: entries.length, size: formatBytes(bytes) });
+}
+async function renderStats() {
+  showStats(await listEntries());
+}
+
 async function refresh() {
   const entries = await listEntries();
-  for (const u of urls) URL.revokeObjectURL(u);
-  urls = [];
-  $('list').replaceChildren(...entries.map((e, i) => renderItem(e, i)));
+  // the cards of entries that are gone go; the cards that stay are kept (not drawn and decoded again)
+  const ids = new Set(entries.map((e) => e.id));
+  for (const [id, li] of cards) {
+    if (ids.has(id)) continue;
+    li.remove();
+    cards.delete(id);
+    URL.revokeObjectURL(thumbUrls.get(id));
+    thumbUrls.delete(id);
+  }
+  $('list').replaceChildren(...entries.map((e, i) => {
+    let li = cards.get(e.id);
+    if (!li) { li = renderItem(e, i); cards.set(e.id, li); }
+    return li;
+  }));
   $('empty').hidden = entries.length > 0;
-  // what the history holds: how many images and their total size
-  $('historyStats').textContent = t('clear.stats', { count: entries.length, size: formatBytes(entries.reduce((sum, e) => sum + (e.blob?.size ?? 0), 0)) });
+  showStats(entries);
   if (fresh.size) $('mainBody').scrollTo({ top: 0 }); // the new entry is at the top
   fresh.clear();
 }

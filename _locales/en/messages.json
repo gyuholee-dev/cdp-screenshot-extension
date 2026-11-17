@@ -39,10 +39,10 @@
     "message": "Keep history for (days)"
   },
   "imageSize_label": {
-    "message": "Thumbnail size"
+    "message": "Preview size"
   },
   "imageSize_note": {
-    "message": "Maximum width of the thumbnails in the capture history (px). You can set it from 256px up to 1024px."
+    "message": "Maximum width of the previews in the capture history (px). You can set it from 256px up to 1024px."
   },
   "group_history": {
     "message": "History"

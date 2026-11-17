@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "default_locale": "en",
   "name": "__MSG_ext_name__",
-  "version": "1.0.0",
+  "version": "1.0.7",
   "description": "__MSG_ext_description__",
   "minimum_chrome_version": "141",
   "permissions": [

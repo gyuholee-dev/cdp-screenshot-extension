@@ -39,10 +39,10 @@
     "message": "기록 보관 일수"
   },
   "imageSize_label": {
-    "message": "썸네일 사이즈"
+    "message": "미리보기 크기"
   },
   "imageSize_note": {
-    "message": "캡처 기록 썸네일의 최대 너비(px)입니다. 최소 256px 부터 최대 1024px 까지 설정할수 있습니다."
+    "message": "캡처 기록 미리보기의 최대 너비(px)입니다. 최소 256px 부터 최대 1024px 까지 설정할수 있습니다."
   },
   "group_history": {
     "message": "기록"

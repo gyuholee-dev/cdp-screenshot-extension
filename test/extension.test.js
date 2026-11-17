@@ -1,3 +1,4 @@
+import { thumbSize, THUMB_MAX_PIXELS } from '../extension/thumb.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -374,4 +375,17 @@ test('capturable: Chrome\'s own pages and the web store are blocked, web and fil
   assert.equal(await isTabCapturable(3, api([{ type: 'page', tabId: 3, url: 'https://a.com/' }, { type: 'page', tabId: 4, url: 'chrome://x/' }])), true);
   assert.equal(await isTabCapturable(3, api([])), true); // unknown: let the capture decide
   assert.equal(await isTabCapturable(3, { debugger: { getTargets: async () => { throw new Error('x'); } } }), true);
+});
+
+test('thumbSize: at most the pixel limit, same proportions, never larger than the image', () => {
+  assert.equal(THUMB_MAX_PIXELS, 500000);
+  for (const [w, h] of [[2560, 1536], [1280, 720], [2560, 16384], [1280, 16384], [3, 16384]]) {
+    const s = thumbSize(w, h);
+    assert.ok(s.width * s.height <= THUMB_MAX_PIXELS, `${w}x${h} -> ${s.width}x${s.height}`);
+    assert.ok(s.width <= w && s.height <= h && s.width >= 1 && s.height >= 1);
+    if (w * h > THUMB_MAX_PIXELS) assert.ok(Math.abs(s.width / s.height - w / h) / (w / h) < 0.01 || s.width === 1, `proportions of ${w}x${h}`);
+  }
+  assert.deepEqual(thumbSize(200, 100), { width: 200, height: 100 }); // small: not enlarged
+  assert.deepEqual(thumbSize(2560, 1536), { width: 912, height: 547 });
+  assert.deepEqual(thumbSize(2560, 16384), { width: 279, height: 1788 });
 });
