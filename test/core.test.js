@@ -409,6 +409,44 @@ test('captureNode: element taller than the limit -> shot up to the limit, not an
   assert.equal(shot.params.clip.height, DEFAULTS.maxSidePixels);
 });
 
+const dprOf = (dpr) => (p) => ({ result: { value: p.expression === 'window.devicePixelRatio' ? dpr : undefined, objectId: 'body-obj' } });
+
+test('useDeviceScale must be a boolean', async () => {
+  await rejectsWith(captureViewport(makeFakeCdp(), { useDeviceScale: 'no' }), ErrorCode.INVALID_OPTION);
+});
+
+test('captureViewport: useDeviceScale off -> the shot is scaled to CSS px (clip.scale = 1 / screen scale)', async () => {
+  const cdp = makeFakeCdp({
+    'Runtime.evaluate': dprOf(2),
+    'Page.getLayoutMetrics': { cssVisualViewport: { pageX: 0, pageY: 30, clientWidth: 800, clientHeight: 600, zoom: 1 } },
+  });
+  await captureViewport(cdp, fast);
+  assert.equal(cdp.calls.find((c) => c.method === 'Page.captureScreenshot').params.clip, undefined); // default: as is
+  const off = makeFakeCdp({
+    'Runtime.evaluate': dprOf(2),
+    'Page.getLayoutMetrics': { cssVisualViewport: { pageX: 0, pageY: 30, clientWidth: 800, clientHeight: 600, zoom: 1 } },
+  });
+  await captureViewport(off, { ...fast, useDeviceScale: false });
+  assert.deepEqual(off.calls.find((c) => c.method === 'Page.captureScreenshot').params.clip, { x: 0, y: 30, width: 800, height: 600, scale: 0.5 });
+});
+
+test('captureNode: useDeviceScale off -> scale 1 in the clip, and the height limit counts CSS px', async () => {
+  const make = () => makeFakeCdp({
+    'Runtime.evaluate': dprOf(2),
+    'DOM.resolveNode': { object: { objectId: 'el-obj' } },
+    'DOM.getBoxModel': { model: { border: [0, 0, 100, 0, 100, 12000, 0, 12000] } },
+    'Runtime.callFunctionOn': pageFns({ scanScrollers: null, measureHidden: { hidden: 0, max: 0, remaining: 0, total: 0, items: [] } }),
+  });
+  const on = make();
+  await captureNode(on, 7, fast);
+  const a = on.calls.find((c) => c.method === 'Page.captureScreenshot').params.clip;
+  assert.deepEqual([a.height, a.scale], [8192, 1]); // 12000 css px is 24000 device px: cut at the limit
+  const off = make();
+  await captureNode(off, 7, { ...fast, useDeviceScale: false });
+  const b = off.calls.find((c) => c.method === 'Page.captureScreenshot').params.clip;
+  assert.deepEqual([b.height, b.scale], [12000, 0.5]); // 12000 px at scale 1: fits
+});
+
 test('pickNode: turns the viewport-size label off before inspect mode starts', async () => {
   const cdp = makeFakeCdp();
   const p = pickNode(cdp, { pickTimeoutMs: 1000 });

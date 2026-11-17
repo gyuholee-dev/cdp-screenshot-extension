@@ -7,6 +7,7 @@ export const DEFAULTS = Object.freeze({
   settleMs: 250, // delay right before the shot (late images, animations); not used between the steps before it (50 was too short for full-page unfolding)
   maxSidePixels: 16384, // the longest side (device pixels: CSS px × screen scale) Chromium renders; beyond it the image comes out blank
   pickTimeoutMs: 60000,
+  useDeviceScale: true, // false: the image is CSS px (screen scale 1) instead of device px (CSS px × screen scale)
 });
 
 const MIME = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
@@ -18,6 +19,9 @@ export function normalizeOptions(o = {}) {
   }
   if (!MIME[opts.format]) {
     throw new CaptureError(ErrorCode.INVALID_OPTION, 'format must be one of png, jpeg, webp.');
+  }
+  if (typeof opts.useDeviceScale !== 'boolean') {
+    throw new CaptureError(ErrorCode.INVALID_OPTION, 'useDeviceScale must be true or false.');
   }
   for (const k of ['settleMs', 'maxSidePixels', 'pickTimeoutMs']) {
     if (!(opts[k] >= 0)) throw new CaptureError(ErrorCode.INVALID_OPTION, `${k} is invalid.`);
@@ -126,6 +130,12 @@ export function imageSize(bytes) {
   }
   return null;
 }
+
+/** The screen scale the result image is made at: the screen's (`dpr`), or 1 when `useDeviceScale` is off. */
+export const outputDpr = (opts, dpr) => (opts.useDeviceScale ? dpr : 1);
+
+/** Page.captureScreenshot `clip.scale` that gives that scale: the image is css × dpr × scale. */
+export const shotScale = (opts, dpr) => (opts.useDeviceScale ? 1 : 1 / dpr);
 
 /**
  * The tallest a shot can be, in CSS px: `maxSide` device px at this screen scale. A page or element

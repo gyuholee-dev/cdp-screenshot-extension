@@ -178,6 +178,7 @@ cdp.on(event, handler)     // → 구독 해제 함수  CDP 이벤트 구독
 | `quality` | 90 | JPEG, WebP 품질 |
 | `settleMs` | 250 | 캡처 직전에 기다리는 시간(ms) |
 | `maxSidePixels` | 16384 | 결과 이미지의 한 변 최대 길이(장치 픽셀 기준, CSS px × 화면 배율). 높이가 넘으면 위쪽부터 이 길이까지만 캡처하고, 폭이 넘으면 `TOO_LARGE` 오류 |
+| `useDeviceScale` | `true` | 화면 배율(장치 픽셀 비율)을 적용해 찍을지 여부. `false`이면 결과가 CSS px 크기(배율 1)로 나오며, 화면 배율이 2인 환경에서는 가로세로가 절반이 되는 대신 `maxSidePixels` 안에 들어오는 페이지 길이가 두 배가 됩니다 |
 | `pickTimeoutMs` | 60000 | 요소 선택 제한 시간(ms). 초과하면 `TIMEOUT` 오류 |
 | `signal` | - | `AbortSignal`. 중단하면 요소 선택이 `CANCELED`로 끝남 |
 | `reportProgress` | - | 진행 단계 콜백 `({ stage })`. `stage`는 `'pick'`, `'expand'`, `'capture'` 중 하나 |
@@ -383,7 +384,7 @@ yarn start --page=multi-scroll                 # 결과: examples/electron-sampl
 - `sticky` 요소는 맨 위에 한 번만 찍히고, `fixed` 요소는 이미지의 오른쪽 아래에 찍힙니다.
 - 가로 스크롤, iframe(다른 출처 포함), shadow DOM 내부의 스크롤 영역은 펼치지 못합니다.
 - 가상 스크롤(화면에 보이는 행만 렌더링하는 목록)은 아직 검증하지 않았습니다.
-- 결과 이미지의 한 변은 16384px(CSS px × 화면 배율)을 넘을 수 없습니다. 높이가 넘는 페이지나 요소는 위쪽부터 16384px까지만 캡처되고 나머지는 잘리며(이어 붙이기는 지원하지 않습니다), 폭이 넘으면 `TOO_LARGE`로 거부됩니다. `maxSidePixels`를 올려도 넘는 부분은 빈 이미지로 나옵니다.
+- 결과 이미지의 한 변은 16384px(CSS px × 화면 배율)을 넘을 수 없습니다. 높이가 넘는 페이지나 요소는 위쪽부터 16384px까지만 캡처되고 나머지는 잘리며(이어 붙이기는 지원하지 않습니다), 폭이 넘으면 `TOO_LARGE`로 거부됩니다. `maxSidePixels`를 올려도 넘는 부분은 빈 이미지로 나옵니다. 화면 배율이 1보다 큰 환경에서는 `useDeviceScale: false`로 찍으면 더 긴 페이지가 한계 안에 들어옵니다.
 
 **Chrome 확장 프로그램**
 
