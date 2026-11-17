@@ -1,6 +1,6 @@
 # cdp-screenshot-extension
 
-LLM으로 웹 개발 또는 일렉트론 앱 개발을 하다 보면 스크린샷을 찍어야 하는 상황이 빈번하게 발생합니다. 크롬 브라우저 및 일렉트론에서는 개발자 도구의 Capture Screenshot 기능을 사용할 수 있습니다만, 이 캡처 기능은 1) 개발자 도구에서 Run Command를 열어 일일이 명령어를 입력해야 함 2)풀 사이즈 및 노드 스크린샷이 엘리먼트 내부의 스크롤 영역을 감지하지 못함 3)스크린샷 이미지를 클립보드에 복사하지 못함 등의 문제로 사용하기 불편합니다.
+LLM으로 웹 개발 또는 일렉트론 앱 개발을 하다 보면 스크린샷을 찍어야 하는 상황이 빈번하게 발생합니다. 크롬 브라우저 및 일렉트론에서는 개발자 도구의 Capture Screenshot 기능을 사용할 수 있습니다만, 이 캡처 기능은 1) 개발자 도구에서 Run Command를 열어 일일이 명령어를 입력해야 함 2) 풀 사이즈 및 노드 스크린샷이 엘리먼트 내부의 스크롤 영역을 감지하지 못함 3) 스크린샷 이미지를 클립보드에 복사하지 못함 등의 문제로 사용하기 불편합니다.
 
 cdp-screenshot-extension은 이런 문제를 해결하기 위해 개발된 크롬 확장기능입니다. 일반적인 이미지 캡처 툴처럼 단축키와 컨텍스트 메뉴 그리고 사이드바를 통해 간단하게 웹페이지에 대한 스크린샷 기능을 사용할 수 있습니다. 풀 사이즈 및 노드 스크린샷은 스크롤 영역을 펼쳐서 캡처할 수 있으며, 캡처한 이미지를 클릭 한번으로 클립보드에 복사할 수 있습니다. 그리고 이 확장의 핵심 기능 모듈을 그대로 일렉트론 개발 프로젝트에서 재사용할 수 있습니다.
 
@@ -19,7 +19,7 @@ cdp-screenshot-extension은 이런 문제를 해결하기 위해 개발된 크�
 
 | 캡처 | 설명 |
 |---|---|
-| **화면 캡처** | 지금 화면에 보이는 영역을 그대로 찍습니다. |
+| **화면 캡처** | 현재 화면에 보이는 영역을 그대로 찍습니다. |
 | **전체 캡처** | 문서 전체를 한 장으로 찍습니다. 앱처럼 내부 컨테이너가 스크롤되는 페이지도 스크롤 영역을 모두 펼쳐서 찍습니다. |
 | **요소 캡처** | 페이지에서 클릭한 요소만 찍습니다. 화면 밖으로 넘치는 요소나 내부에서 스크롤되는 요소도 잘리지 않습니다. |
 
@@ -278,8 +278,6 @@ import fs from 'node:fs';
 import { runCapture } from 'cdp-screenshot-extension/adapter-electron';
 
 async function main() {
-  await app.whenReady();
-
   const win = new BrowserWindow({ width: 1280, height: 800 });
   await win.loadURL('https://example.com');
 
@@ -295,7 +293,7 @@ async function main() {
   console.log(`${shot.width}x${shot.height}px`);
 }
 
-main().catch((e) => {
+app.whenReady().then(main).catch((e) => {
   console.error(e);
   app.exit(1);                                 // 실패하면 앱이 종료되지 않고 남지 않도록 합니다
 });

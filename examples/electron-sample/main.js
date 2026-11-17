@@ -25,8 +25,6 @@ const format = arg('format', 'png');
 const outDir = path.join(import.meta.dirname, 'out');
 
 async function main() {
-  await app.whenReady();
-
   const win = new BrowserWindow({ width: 1280, height: 800, show: !flag('hidden') });
   await win.loadFile(path.join(root, 'test/fixtures', `${page}.html`));
   const options = { depth, format };
@@ -46,7 +44,7 @@ async function main() {
   save('node', await runCaptureNode(win.webContents, selector, options));
 }
 
-main().then(
+app.whenReady().then(main).then(
   () => app.quit(),
   (e) => {
     console.error(`capture failed: ${e.code ?? ''} ${e.message}`);
