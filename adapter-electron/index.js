@@ -3,7 +3,7 @@
 // a dynamic import() from either CommonJS or ESM main-process code.
 //
 // Window selection, focus, hiding screen updates, saving files and the clipboard are the host
-// app's job (handoff §11); this adapter only talks CDP.
+// app's job; this adapter only talks CDP.
 import { CaptureError, ErrorCode, fromCdpError } from '../core/errors.js';
 import { captureByKind, captureNode } from '../core/index.js';
 

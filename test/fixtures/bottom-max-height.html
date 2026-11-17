@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ilog: 문서 맨 아래의 max-height 로그 상자</title>
+<title>bottom-max-height: 문서 맨 아래의 max-height 스크롤 요소</title>
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font: 13px/20px ui-monospace, Menlo, monospace; background: #fff; color: #222; }
@@ -11,31 +11,31 @@
   .filler { height: 520px; padding: 16px; background: linear-gradient(#fff, #e8f0ff); }
   section { margin: 0 12px 12px; border: 1px solid #999; border-radius: 6px; overflow: hidden; }
   section h2 { margin: 0; padding: 6px 10px; font-size: 13px; background: #ddd; }
-  /* 앱의 .ilog와 같은 모양: max-height, 안쪽 스크롤, scrollbar-gutter, pre-wrap */
-  .ilog { max-height: 180px; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; white-space: pre-wrap; padding: 4px 8px; }
-  .ilog::-webkit-scrollbar { width: 10px; }
-  .ilog::-webkit-scrollbar-thumb { background: #888; border-radius: 5px; }
+  /* max-height, 안쪽 스크롤, scrollbar-gutter, pre-wrap을 가진 스크롤 요소 */
+  .capped { max-height: 180px; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; white-space: pre-wrap; padding: 4px 8px; }
+  .capped::-webkit-scrollbar { width: 10px; }
+  .capped::-webkit-scrollbar-thumb { background: #888; border-radius: 5px; }
   .ln { display: block; }
   .ln:nth-child(odd) { background: #f6f6f6; }
 </style>
 </head>
 <body>
-<header>문서 전체가 스크롤되고, 맨 아래에 max-height 로그 상자가 있다. 상자를 요소 스크린샷으로 찍어 마지막 줄까지 나오는지 확인한다.</header>
+<header>문서 전체가 스크롤되고, 맨 아래에 max-height가 걸린 스크롤 요소가 있다. 이 요소를 요소 캡처로 찍어 마지막 줄까지 나오는지 확인한다.</header>
 <div class="filler">위쪽 여백(문서를 길게 만든다)</div>
-<section id="box"><h2>내역</h2><div class="ilog" id="ilog"></div></section>
+<section id="box"><h2>제목</h2><div class="capped" id="capped"></div></section>
 <script>
-  const el = document.getElementById('ilog');
+  const el = document.getElementById('capped');
   for (let i = 1; i <= 45; i++) {
     const s = document.createElement('span');
     s.className = 'ln';
-    s.textContent = `line ${String(i).padStart(2, '0')} time=22:00:${String(i).padStart(2, '0')} level=INFO source=model.go:${100 + i} msg="cache sleep scheduled"`;
+    s.textContent = `line ${String(i).padStart(2, '0')}: sample text that is long enough to wrap onto a second line in a narrow box`;
     el.append(s);
   }
-  el.scrollTop = el.scrollHeight;       // 로그는 보통 맨 아래로 붙어 있다
+  el.scrollTop = el.scrollHeight;       // 스크롤 위치가 맨 아래에 붙어 있다
   window.scrollTo(0, document.documentElement.scrollHeight);
 
   // ?v=body : 문서가 아니라 body가 스크롤 컨테이너인 레이아웃(100vh)
-  // ?v=live : 촬영 중에도 로그 줄이 계속 추가되고, 상자는 맨 아래에 붙어 있다
+  // ?v=live : 캡처 중에도 줄이 계속 추가되고, 스크롤 위치는 맨 아래에 붙어 있다
   const v = new URLSearchParams(location.search).get('v');
   if (v === 'body') {
     document.documentElement.style.height = '100%';
@@ -47,7 +47,7 @@
     setInterval(() => {
       const s = document.createElement('span');
       s.className = 'ln';
-      s.textContent = `line ${++n} time=22:01:00 level=INFO source=model.go:${100 + n} msg="cache sleep scheduled"`;
+      s.textContent = `line ${++n}: sample text that is long enough to wrap onto a second line in a narrow box`;
       const stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
       el.append(s);
       if (stick) el.scrollTop = el.scrollHeight;

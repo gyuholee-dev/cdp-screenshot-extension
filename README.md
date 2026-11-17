@@ -233,7 +233,7 @@ yarn serve    # 테스트 페이지 서버: http://localhost:8080/
 | `doc-scroll` | 문서 스크롤만 있는 긴 페이지 |
 | `layouts` | `sticky`, `fixed`, `100vh` |
 | `inner-scroll` | 문서가 아닌 내부 컨테이너가 스크롤되는 앱 레이아웃에서의 요소 캡처 |
-| `ilog` | 문서 맨 아래에 있는 `max-height` 로그 상자 |
+| `bottom-max-height` | 문서 맨 아래에 있는 `max-height` 스크롤 요소 |
 
 다음 항목을 확인하세요.
 

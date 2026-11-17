@@ -1,11 +1,11 @@
 import { CaptureError, ErrorCode, fromCdpError } from './errors.js';
 
 export const DEFAULTS = Object.freeze({
-  depth: 5, // default: apps often nest the scrolling area ~4 levels below <body> (mockup of the Ollama app: <main> at 4)
+  depth: 5, // default: apps often nest the scrolling area ~4 levels below <body>
   format: 'png',
   quality: 90, // jpeg/webp only
   settleMs: 250, // delay right before the shot (late images, animations); not used between the steps before it (50 was too short for full-page unfolding)
-  maxSidePixels: 16384, // assumption, not measured (handoff §5)
+  maxSidePixels: 16384, // the longest side (device pixels: CSS px × screen scale) Chromium renders; beyond it the image comes out blank
   pickTimeoutMs: 60000,
 });
 

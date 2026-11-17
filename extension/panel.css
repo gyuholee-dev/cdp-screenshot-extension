@@ -1,7 +1,6 @@
-/* The look of the Ollama Multi Manager's settings, taken from its stylesheets (tokens, controls,
-   form rows) and checked against its mockup: the same colours, a surface (--bg) with boxes (--box)
-   on it, one-row fields (37px) with the label left and the control right, a description under the
-   label, borderless values, a 34x20 switch, a blue primary button. */
+/* The look of the panel: a surface (--bg) with boxes (--box) on it, one-row fields (37px) with the
+   label left and the control right, a description under the label, borderless values, a 34x20
+   switch, a blue primary button. */
 :root {
   color-scheme: light dark;
   --bg: light-dark(#ebebeb, #1c1c1c);
@@ -26,7 +25,7 @@
 }
 * { box-sizing: border-box; }
 
-/* Scrollbars as in the Ollama Multi Manager (styles/_polish.scss): thin and quiet; on Windows and
+/* Scrollbars: thin and quiet; on Windows and
    Linux (panel.js sets data-platform) the arrows at the ends are taken off, which only a bar styled
    by hand allows, and the room the bar takes comes out of the padding next to it (--sbw). */
 * { scrollbar-width: thin; scrollbar-color: light-dark(#b0b0b0, #4a4a4a) transparent; }

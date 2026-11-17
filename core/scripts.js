@@ -108,8 +108,8 @@ export function waitStable(maxMs) {
 }
 
 /**
- * this = the element to shoot. Ancestors that clip it (the app scrolls an inner container, not the
- * document: body{overflow:hidden} + .dbody{overflow:auto}) would cut the shot at their edge, so their
+ * this = the element to shoot. Ancestors that clip it (the page scrolls an inner container, not the
+ * document: body{overflow:hidden} + .content{overflow:auto}) would cut the shot at their edge, so their
  * overflow is set to visible (originals and scroll positions saved in the returned state).
  * Innermost first; rects are re-read after each change because layout moves.
  */

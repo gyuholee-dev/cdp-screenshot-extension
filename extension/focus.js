@@ -1,4 +1,4 @@
-// Host-side concern (handoff §11): core never touches window focus.
+// Host-side concern: core never touches window focus.
 // On macOS a context-menu click does not focus the Chrome window, and an unfocused window gets
 // no hover events, so the inspect-mode highlight never shows. Bring the tab's window forward
 // before element picking starts.

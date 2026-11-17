@@ -63,7 +63,7 @@ const itemsOf = (m) => m.items ?? [m.max];
 /**
  * Unfold scroll containers found within `opts.depth` of the root element.
  *
- * Strategy (handoff §6), judged per scroller:
+ * Strategy, judged per scroller:
  *  1. Grow the viewport by a small probe and re-measure each scroller.
  *  2. A scroller whose hidden amount did not shrink is "stuck" (fixed height): it will be
  *     handled by the style fallback and no longer drives the growth.
