@@ -260,10 +260,8 @@ Electron 앱의 메인 프로세스에서 `adapter-electron`을 불러와 `webCo
 ### 설치
 
 ```bash
-yarn add github:gyuholee-dev/cdp-screenshot-extension#main
+yarn add github:gyuholee-dev/cdp-screenshot-extension#v1.0.0
 ```
-
-릴리스 태그가 생기면 `#<태그>`로 버전을 고정할 수 있습니다.
 
 ### 사용 예
 
