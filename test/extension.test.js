@@ -48,10 +48,13 @@ test('normalizeSettings: defaults and coercion', () => {
   assert.deepEqual(normalizeSettings(), SETTING_DEFAULTS);
   assert.deepEqual(
     normalizeSettings({ depth: '2', format: 'jpeg', settleMs: '500', afterAction: 'save', retentionDays: '7' }),
-    { depth: 2, format: 'jpeg', settleMs: 500, afterAction: 'save', retentionDays: 7, historyImageSize: 330, effects: SETTING_DEFAULTS.effects },
+    { depth: 2, format: 'jpeg', settleMs: 500, useDeviceScale: true, afterAction: 'save', retentionDays: 7, historyImageSize: 330, effects: SETTING_DEFAULTS.effects },
   );
   assert.deepEqual(normalizeSettings({ depth: -1, format: 'gif', settleMs: 'x', afterAction: 'cloud', retentionDays: -3 }), SETTING_DEFAULTS);
   assert.equal(normalizeSettings({ depth: 1.5 }).depth, SETTING_DEFAULTS.depth);
+  assert.equal(SETTING_DEFAULTS.useDeviceScale, true);
+  assert.equal(normalizeSettings({ useDeviceScale: false }).useDeviceScale, false);
+  assert.equal(normalizeSettings({ useDeviceScale: 'no' }).useDeviceScale, true); // not a boolean: the default
   assert.equal(normalizeSettings({ retentionDays: 0 }).retentionDays, 0); // 0 = keep until cleared
   assert.equal(normalizeSettings(null).format, 'png');
   assert.equal(SETTING_DEFAULTS.afterAction, 'history');

@@ -95,6 +95,12 @@
   "settle_label": {
     "message": "Capture delay"
   },
+  "deviceScale_note": {
+    "message": "Captures at your OS display scale (currently {scale}%). Turn this off to capture more content, at the cost of a lower image resolution. If a tall web page comes out cut off, turn this option off."
+  },
+  "deviceScale_label": {
+    "message": "Apply screen scale"
+  },
   "format_label": {
     "message": "Image format"
   },

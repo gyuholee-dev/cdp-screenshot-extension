@@ -25,6 +25,7 @@ export async function captureFlow({ kind, tab, origin, signal }, deps) {
       depth: settings.depth,
       format: settings.format,
       settleMs: settings.settleMs,
+      useDeviceScale: settings.useDeviceScale,
       signal, // lets the host cancel an element pick (the key press may go to the host's UI, not to the page)
       reportProgress: ({ stage }) => notifyPanel({ type: 'progress', stage, kind, windowId: tab.windowId }),
     });

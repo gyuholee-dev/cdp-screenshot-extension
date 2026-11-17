@@ -347,6 +347,8 @@ function fillSettings(values = settings) {
   $('depth').value = values.depth;
   $('format').value = values.format;
   $('settleMs').value = values.settleMs;
+  $('useDeviceScale').checked = values.useDeviceScale;
+  $('deviceScaleNote').textContent = t('deviceScale.note', { scale: Math.round(window.devicePixelRatio * 100) }); // the OS scale now (this window's)
   $('retentionDays').value = values.retentionDays;
   $('historyImageSize').value = values.historyImageSize;
   $('flashOn').checked = values.effects.flash.enabled;
@@ -361,6 +363,7 @@ async function persistSettings() {
     depth: $('depth').value,
     format: $('format').value,
     settleMs: $('settleMs').value,
+    useDeviceScale: $('useDeviceScale').checked,
     afterAction: AFTER_ACTIONS.includes($('afterAction').value) ? $('afterAction').value : settings.afterAction,
     retentionDays: $('retentionDays').value,
     historyImageSize: $('historyImageSize').value,
@@ -379,7 +382,7 @@ async function persistSettings() {
 function bindSettings() {
   // Every item takes effect the moment it is changed (a change event: leaving the field, picking, toggling).
   // Save saves all of them at once and goes back to the main view; Defaults puts every item back and applies at once.
-  for (const id of ['depth', 'format', 'settleMs', 'afterAction', 'retentionDays', 'historyImageSize', 'flashOn', 'flashCss', 'edgeOn', 'edgeCss']) {
+  for (const id of ['depth', 'format', 'settleMs', 'useDeviceScale', 'afterAction', 'retentionDays', 'historyImageSize', 'flashOn', 'flashCss', 'edgeOn', 'edgeCss']) {
     $(id).addEventListener('change', persistSettings);
   }
   $('save').addEventListener('click', async () => {

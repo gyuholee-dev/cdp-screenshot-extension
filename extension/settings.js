@@ -45,6 +45,7 @@ export const SETTING_DEFAULTS = Object.freeze({
   depth: DEFAULTS.depth,
   format: DEFAULTS.format,
   settleMs: DEFAULTS.settleMs,
+  useDeviceScale: DEFAULTS.useDeviceScale,
   afterAction: 'history',
   retentionDays: 30, // 0 = keep until cleared by hand
   historyImageSize: 330, // a card is this + its padding and border (30px) = 360px at most
@@ -63,6 +64,7 @@ export function normalizeSettings(raw = {}) {
     depth: Number.isInteger(depth) && depth >= 0 ? depth : SETTING_DEFAULTS.depth,
     format: FORMATS.includes(r.format) ? r.format : SETTING_DEFAULTS.format,
     settleMs: Number.isFinite(settleMs) && settleMs >= 0 ? Math.round(settleMs) : SETTING_DEFAULTS.settleMs,
+    useDeviceScale: typeof r.useDeviceScale === 'boolean' ? r.useDeviceScale : SETTING_DEFAULTS.useDeviceScale,
     afterAction: AFTER_ACTIONS.includes(afterAction) ? afterAction : SETTING_DEFAULTS.afterAction,
     retentionDays: Number.isInteger(retentionDays) && retentionDays >= 0 ? retentionDays : SETTING_DEFAULTS.retentionDays,
     historyImageSize: Number.isFinite(imageSize) && r.historyImageSize !== '' && r.historyImageSize != null
