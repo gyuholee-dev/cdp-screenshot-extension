@@ -2,10 +2,14 @@
   "name": "cdp-screenshot-electron-sample",
   "version": "0.0.0",
   "private": true,
-  "description": "Sample Electron app that uses adapter-electron / core via dynamic import()",
+  "type": "module",
+  "description": "Sample Electron app (ES modules) that uses adapter-electron from the cdp-screenshot-extension package",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
+  },
+  "dependencies": {
+    "cdp-screenshot-extension": "link:../.."
   },
   "devDependencies": {
     "electron": "44.10.2"

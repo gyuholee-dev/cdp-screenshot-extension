@@ -1,16 +1,16 @@
-// Sample Electron main process (CommonJS) using adapter-electron through a dynamic import().
+// Sample Electron main process (ES modules) using adapter-electron.
 //
-// An app that depends on "github:<owner>/cdp-screenshot-extension#<tag>" would write:
-//   const { runCapture, runCaptureNode } = await import('cdp-screenshot-extension/adapter-electron');
-// Here the adapter is imported by path because the sample lives inside the repository.
+// The adapter is imported by package name, the way an app that depends on
+// "github:<owner>/cdp-screenshot-extension#<tag>" would import it. Here the package is linked
+// to the repository root (see package.json), so the package's own "exports" are what get used.
 //
-// Usage: yarn start [--page=multi-scroll] [--depth=3] [--format=png] [--hidden]
+// Usage: yarn start [--page=multi-scroll] [--depth=5] [--format=png] [--selector=#right] [--hidden]
 // Output: PNG files in ./out and one line per capture on stdout.
 
-const { app, BrowserWindow } = require('electron');
-const fs = require('node:fs');
-const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+import { app, BrowserWindow } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+import { runCapture, runCaptureNode } from 'cdp-screenshot-extension/adapter-electron';
 
 const arg = (name, fallback) => {
   const hit = process.argv.find((a) => a.startsWith(`--${name}=`));
@@ -18,21 +18,18 @@ const arg = (name, fallback) => {
 };
 const flag = (name) => process.argv.includes(`--${name}`);
 
-const root = path.resolve(__dirname, '../..');
+const root = path.resolve(import.meta.dirname, '../..');
 const page = arg('page', 'multi-scroll');
-const depth = Number(arg('depth', '3'));
+const depth = Number(arg('depth', '5'));
 const format = arg('format', 'png');
-const outDir = path.join(__dirname, 'out');
+const outDir = path.join(import.meta.dirname, 'out');
 
 async function main() {
   await app.whenReady();
-  const { runCapture, runCaptureNode } = await import(
-    pathToFileURL(path.join(root, 'adapter-electron/index.js')).href
-  );
 
   const win = new BrowserWindow({ width: 1280, height: 800, show: !flag('hidden') });
   await win.loadFile(path.join(root, 'test/fixtures', `${page}.html`));
-  const options = { depth, format, settleMs: 250 };
+  const options = { depth, format };
 
   fs.mkdirSync(outDir, { recursive: true });
   const save = (name, r) => {

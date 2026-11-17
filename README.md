@@ -255,7 +255,7 @@ Electron 앱의 메인 프로세스에서 `adapter-electron`을 불러와 `webCo
 | 이미지 바이트와 크기를 반환합니다. | 캡처하는 동안 화면 갱신을 멈춰 내용이 바뀌지 않게 합니다. |
 | 오류를 `CaptureError`로 통일합니다. | 파일 저장, 클립보드 복사, 사용자에게 보여 줄 오류 문구를 처리합니다. |
 
-`adapter-electron`은 `electron`을 import하지 않고 `webContents`를 인자로 받기만 합니다. 그래서 CommonJS 메인 프로세스에서도 동적 `import()`로 불러올 수 있습니다. 다른 디버거가 이미 연결되어 있으면 `NOT_ATTACHABLE` 오류를 발생시키고, 캡처가 끝나면 이 패키지가 연결한 디버거만 해제합니다.
+`adapter-electron`은 `electron`을 import하지 않고 `webContents`를 인자로 받기만 합니다. 이 패키지는 ES 모듈이므로 일반 `import`로 불러옵니다. 다른 디버거가 이미 연결되어 있으면 `NOT_ATTACHABLE` 오류를 발생시키고, 캡처가 끝나면 이 패키지가 연결한 디버거만 해제합니다.
 
 ### 설치
 
@@ -267,16 +267,16 @@ yarn add github:gyuholee-dev/cdp-screenshot-extension#main
 
 ### 사용 예
 
-아래 예제는 CommonJS 메인 프로세스에서 페이지 전체를 캡처해 파일로 저장하고 클립보드에도 복사합니다.
+아래 예제는 ES 모듈 메인 프로세스에서 페이지 전체를 캡처해 파일로 저장하고 클립보드에도 복사합니다.
 
 ```js
-// main.js (CommonJS 메인 프로세스)
-const { app, BrowserWindow, clipboard, nativeImage } = require('electron');
-const fs = require('node:fs');
+// main.js (ES 모듈 메인 프로세스)
+import { app, BrowserWindow, clipboard, nativeImage } from 'electron';
+import fs from 'node:fs';
+import { runCapture } from 'cdp-screenshot-extension/adapter-electron';
 
 async function main() {
   await app.whenReady();
-  const { runCapture } = await import('cdp-screenshot-extension/adapter-electron');
 
   const win = new BrowserWindow({ width: 1280, height: 800 });
   await win.loadURL('https://example.com');
@@ -293,17 +293,21 @@ async function main() {
   console.log(`${shot.width}x${shot.height}px`);
 }
 
-main();
+main().catch((e) => {
+  console.error(e);
+  app.exit(1);                                 // 실패하면 앱이 종료되지 않고 남지 않도록 합니다
+});
 ```
 
 ### 마우스로 요소 선택하기
 
-`'element'`는 사용자가 클릭해서 요소를 선택하는 방식이므로, 시작하기 전에 창에 포커스를 줘야 합니다. 앱 UI에서 선택을 취소할 수 있게 하려면 `AbortSignal`을 넘기세요.
+`'element'`는 사용자가 클릭해서 요소를 선택하는 방식이므로, 시작하기 전에 창이 포커스를 받아야 합니다. macOS에서는 앱 자체가 활성화되지 않으면 하이라이트가 보이지 않으므로, `app.focus({ steal: true })`로 앱을 활성화한 뒤 `win.focus()`를 호출하세요. 앱 UI에서 선택을 취소할 수 있게 하려면 `AbortSignal`을 넘깁니다.
 
 ```js
 const ac = new AbortController();
 
-win.focus();                                   // 선택 전에 창에 포커스를 줍니다 (앱이 할 일)
+app.focus({ steal: true });                    // macOS: 앱을 먼저 활성화합니다 (앱이 할 일)
+win.focus();
 const shot = await runCapture(win.webContents, 'element', {
   signal: ac.signal,                           // 앱 UI에서 ac.abort()로 취소
   pickTimeoutMs: 60000,
@@ -313,18 +317,38 @@ const shot = await runCapture(win.webContents, 'element', {
 });
 ```
 
-### 선택자로 요소 캡처하기
-
-사용자가 직접 클릭할 수 없는 환경(예: 자동화 서버)에서는 선택자로 요소를 바로 캡처할 수 있습니다.
+**안내 문구를 페이지 안에 그리면 결과 이미지에 찍힙니다.** `reportProgress`는 동기 알림이라서, 안내를 지우고 페이지가 다시 그려질 때까지 기다릴 수 없기 때문입니다. 안내는 페이지 밖(앱의 다른 창이나 별도 뷰)에 두는 것이 가장 간단합니다. 꼭 페이지 안에 그려야 한다면 `runCapture` 대신 `pickNode`와 `captureNode`를 나누어 호출하고, 그 사이에 안내를 지운 뒤 화면이 다시 그려지기를 기다리세요.
 
 ```js
-const { runCaptureNode } = await import('cdp-screenshot-extension/adapter-electron');
+import { createElectronCdp } from 'cdp-screenshot-extension/adapter-electron';
+import { pickNode, captureNode } from 'cdp-screenshot-extension/core';
+
+const cdp = createElectronCdp(win.webContents);
+await cdp.attach();                            // 다른 디버거가 이미 붙어 있으면 NOT_ATTACHABLE
+try {
+  showHint('캡처할 요소를 클릭하세요');          // 페이지 안에 그린 안내
+  const { backendNodeId } = await pickNode(cdp, { signal: ac.signal });
+  hideHint();                                  // 안내를 지우고
+  await waitForRepaint(win);                   // 화면이 다시 그려질 때까지 기다립니다 (앱이 구현)
+  const shot = await captureNode(cdp, backendNodeId, { depth: 5 });
+} finally {
+  await cdp.detach();                          // 이 패키지가 붙인 디버거만 뗍니다
+}
+```
+
+### 선택자로 요소 찍기
+
+클릭할 수 없는 호출자(예: 자동화 서버)는 선택자로 요소를 바로 찍을 수 있습니다.
+
+```js
+import { runCaptureNode } from 'cdp-screenshot-extension/adapter-electron';
+
 const shot = await runCaptureNode(win.webContents, '#log-panel', { depth: 5 });
 ```
 
 ### 오류 처리
 
-`error.code`로 분기하고, 사용자에게 보여 줄 문구는 앱에서 코드별로 따로 준비하세요. `error.message`는 개발자용 영어 원문이므로 로그에만 남기면 됩니다. 코드 목록과 `details` 형식은 [core 인터페이스](#core-인터페이스)를 참고하세요.
+`error.code`로 분기하고, 사용자에게 보여 줄 문구는 앱에서 코드별로 따로 준비하세요. `error.message`는 개발자용 영어 원문이므로 로그에만 남기면 됩니다. `details`는 없을 수도 있으므로 `?.`로 읽으세요. 코드 목록과 `details` 형식은 [core 인터페이스](#core-인터페이스)를 참고하세요.
 
 ```js
 try {
@@ -333,8 +357,8 @@ try {
   console.error(e.code, e.message);            // 로그용
   switch (e.code) {
     case 'CANCELED': break;                    // 취소는 따로 알리지 않아도 됨 (notify는 앱에서 구현하는 함수의 예시)
-    case 'TOO_LARGE': notify(`이미지가 너무 큽니다 (최대 ${e.details.maxSide}px)`); break;
-    case 'TIMEOUT': notify(`${e.details.pickTimeoutMs / 1000}초 동안 요소를 선택하지 않았습니다`); break;
+    case 'TOO_LARGE': notify(`이미지가 너무 큽니다 (최대 ${e.details?.maxSide}px)`); break;
+    case 'TIMEOUT': notify(`${e.details?.pickTimeoutMs / 1000}초 동안 요소를 선택하지 않았습니다`); break;
     default: notify('캡처에 실패했습니다');
   }
 }
@@ -342,13 +366,13 @@ try {
 
 ### 샘플 앱
 
-`examples/electron-sample`은 저장소에 포함된 테스트 페이지를 `adapter-electron`으로 캡처하는 최소 구성의 앱입니다.
+`examples/electron-sample`은 ES 모듈로 작성한 최소 구성의 앱입니다. 위 예제와 똑같이 패키지 이름(`cdp-screenshot-extension/adapter-electron`)으로 어댑터를 불러오며, `package.json`의 `link:../..` 의존성이 저장소 루트를 그 패키지로 연결합니다. 저장소에 포함된 테스트 페이지를 캡처합니다.
 
 ```bash
 cd examples/electron-sample
 yarn install
 yarn start --page=multi-scroll                 # 결과: examples/electron-sample/out/
-# 옵션: --depth=5  --format=png  --selector=#right  --hidden (창을 숨긴 채 캡처)
+# 옵션: --depth=5(기본값)  --format=png  --selector=#right  --hidden (창을 숨긴 채 캡처)
 ```
 
 ## 알려진 문제와 한계
