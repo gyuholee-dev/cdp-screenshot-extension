@@ -29,7 +29,7 @@ export function fromCdpError(err) {
   if (err instanceof CaptureError) return err;
   const msg = String(err?.message ?? err);
   if (/another debugger is already attached/i.test(msg)) {
-    return new CaptureError(ErrorCode.NOT_ATTACHABLE, 'Another debugger is already attached (check whether DevTools is open).', { cause: err });
+    return new CaptureError(ErrorCode.NOT_ATTACHABLE, 'Another debugger is already attached.', { cause: err });
   }
   if (/cannot (attach|access)|not allowed|chrome:\/\/|chrome web store/i.test(msg)) {
     return new CaptureError(ErrorCode.NOT_ATTACHABLE, 'The debugger cannot be attached to this page.', { cause: err });

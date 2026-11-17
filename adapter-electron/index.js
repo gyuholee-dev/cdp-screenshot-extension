@@ -43,7 +43,7 @@ export function createElectronCdp(webContents) {
       if (dbg.isAttached()) {
         throw new CaptureError(
           ErrorCode.NOT_ATTACHABLE,
-          'Another debugger is already attached (check whether DevTools is open).',
+          'Another debugger is already attached.',
         );
       }
       try {
