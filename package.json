@@ -1,6 +1,6 @@
 {
   "name": "cdp-screenshot-extension",
-  "version": "1.0.7",
+  "version": "1.1.0",
   "description": "CDP-based screenshot tool: viewport, full-page and element capture. Environment-independent core with Chrome extension and Electron adapters.",
   "license": "MIT",
   "type": "module",
