@@ -1,4 +1,4 @@
-import { assertWithinLimit, layoutBarrier } from './util.js';
+import { assertWithinLimit, layoutBarrier, maxCssHeight } from './util.js';
 import { zoomOf } from './geometry.js';
 import { callOn, forceExpand, measureHidden, restoreState, scanScrollers, waitStable } from './scripts.js';
 
@@ -87,8 +87,9 @@ export async function expandScrollers(cdp, rootObjectId, opts, defer, dpr) {
   }
 
   const view = await layoutViewport(cdp);
-  // m0.max is a lower bound of the height a responsive scroller needs: reject early if even that is too big.
-  assertWithinLimit(view.width * dpr, (view.height + m0.max) * dpr, opts.maxSidePixels);
+  // Only the width can make a shot impossible: a taller page is shot up to the limit (below).
+  assertWithinLimit(view.width * dpr, 0, opts.maxSidePixels);
+  const maxH = maxCssHeight(dpr, opts.maxSidePixels);
 
   // Cleanup order (reverse of registration): clear override -> layout barrier -> restore state.
   defer(async () => {
@@ -102,10 +103,12 @@ export async function expandScrollers(cdp, rootObjectId, opts, defer, dpr) {
   defer(() => cdp.send('Emulation.clearDeviceMetricsOverride'));
 
   let height = view.height;
+  // Returns true when the height was cut to the limit (nothing more to grow into).
   const setHeight = async (h) => {
-    assertWithinLimit(view.width * dpr, h * dpr, opts.maxSidePixels);
-    height = h;
-    await applyViewport(cdp, opts, view.width, h, stateId);
+    const capped = h > maxH;
+    height = Math.min(h, maxH);
+    await applyViewport(cdp, opts, view.width, height, stateId);
+    return capped;
   };
 
   // One round: grow for the scrollers that follow the viewport. Returns when none still does.
@@ -113,12 +116,13 @@ export async function expandScrollers(cdp, rootObjectId, opts, defer, dpr) {
     const startHeight = height;
     let items = itemsOf(await callOn(cdp, stateId, measureHidden));
     const maxHidden = Math.max(0, ...items);
-    if (maxHidden <= 1) return;
+    if (maxHidden <= 1) return false;
     const stuck = new Set();
     let grow = Math.min(Math.ceil(maxHidden), PROBE_PX);
     let anyResponded = false;
     for (let pass = 0; pass < MAX_PASSES; pass++) {
-      await setHeight(height + grow);
+      const capped = await setHeight(height + grow);
+      if (capped) return true; // at the limit: what is still hidden stays hidden
       const now = itemsOf(await callOn(cdp, stateId, measureHidden));
       let need = 0;
       for (let i = 0; i < items.length; i++) {
@@ -131,17 +135,18 @@ export async function expandScrollers(cdp, rootObjectId, opts, defer, dpr) {
       items = now;
       if (!anyResponded) {
         await setHeight(startHeight); // nothing reacts to the viewport: drop the probe
-        return;
+        return false;
       }
-      if (need <= 0) return;
+      if (need <= 0) return false;
       grow = need;
     }
+    return false;
   };
 
   // Forcing a fixed-height scroller open makes its ancestors' content taller, which can
   // clip them again: so grow -> force -> grow ... until nothing is hidden (bounded).
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    await growLoop();
+    if (await growLoop()) break;
     const m = await callOn(cdp, stateId, measureHidden);
     if (m.max <= 1) break;
     await callOn(cdp, stateId, forceExpand);
@@ -181,11 +186,12 @@ export async function expandDocument(cdp, opts, defer, dpr) {
   });
   defer(() => cdp.send('Emulation.clearDeviceMetricsOverride'));
 
+  assertWithinLimit(s.viewW * dpr, 0, opts.maxSidePixels);
+  const maxH = maxCssHeight(dpr, opts.maxSidePixels);
   for (let pass = 0; pass < MAX_DOC_PASSES; pass++) {
-    assertWithinLimit(s.viewW * dpr, s.contentH * dpr, opts.maxSidePixels);
-    await applyViewport(cdp, opts, s.viewW, s.contentH);
+    await applyViewport(cdp, opts, s.viewW, Math.min(s.contentH, maxH));
     s = await read();
-    if (s.contentH - s.viewH <= 1) break;
+    if (s.contentH - s.viewH <= 1 || s.viewH >= maxH) break; // fits, or at the limit
   }
   return { ...s, grown: true };
 }
@@ -213,7 +219,7 @@ export async function fitViewportToClip(cdp, clip, metrics, measure, opts, defer
 
   const view = metrics.cssLayoutViewport ?? metrics.layoutViewport ?? { clientWidth: vv.clientWidth };
   const z = zoomOf(metrics);
-  assertWithinLimit(view.clientWidth * dpr, (clip.height / z) * dpr, opts.maxSidePixels);
+  assertWithinLimit(view.clientWidth * dpr, 0, opts.maxSidePixels);
 
   const pos = await cdp.send('Runtime.evaluate', { expression: '[window.scrollX, window.scrollY]', returnByValue: true });
   const [sx, sy] = pos?.result?.value ?? [0, 0];
@@ -232,7 +238,6 @@ export async function fitViewportToClip(cdp, clip, metrics, measure, opts, defer
     const next = await measure();
     current = next.clip;
     if (clipFits(current, next.metrics.cssVisualViewport ?? next.metrics.visualViewport ?? {})) break;
-    assertWithinLimit(view.clientWidth * dpr, (current.height / z) * dpr, opts.maxSidePixels);
   }
   return current;
 }

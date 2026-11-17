@@ -3,7 +3,7 @@ import { computeClip, zoomOf } from './geometry.js';
 import { expandDocument, expandScrollers, fitViewportToClip } from './expand.js';
 import { pickNode } from './pick.js';
 import { callOn, restoreAncestors, unclipAncestors } from './scripts.js';
-import { assertWithinLimit, devicePixelRatio, normalizeOptions, runSession, screenshot, settle } from './util.js';
+import { assertWithinLimit, devicePixelRatio, maxCssHeight, normalizeOptions, runSession, screenshot, settle } from './util.js';
 
 const MAX_SHOT_ATTEMPTS = 3;
 
@@ -36,7 +36,7 @@ export async function captureFull(cdp, options = {}) {
     // Stay inside the viewport: captureBeyondViewport repeats the first screen (doc-scroll fixture).
     // Sizes are CSS px; the clip wants device-independent px (css * browser zoom).
     const cssW = doc.viewW;
-    const cssH = Math.min(doc.contentH, doc.viewH);
+    const cssH = Math.min(doc.contentH, doc.viewH, maxCssHeight(dpr, opts.maxSidePixels)); // a taller page is shot up to the limit
     assertWithinLimit(cssW * dpr, cssH * dpr, opts.maxSidePixels);
     const clip = { x: 0, y: 0, width: Math.round(cssW * doc.zoom), height: Math.round(cssH * doc.zoom), scale: 1 };
     await settle(cdp, opts); // the one delay before the shot (the page was changed for it)
@@ -90,10 +90,14 @@ export async function captureNode(cdp, target, options = {}) {
     }
     await cdp.send('DOM.scrollIntoViewIfNeeded', { backendNodeId });
 
+    const maxH = maxCssHeight(dpr, opts.maxSidePixels);
     const measure = async () => {
       const { model } = await cdp.send('DOM.getBoxModel', { backendNodeId });
       const metrics = await cdp.send('Page.getLayoutMetrics');
-      return { metrics, clip: computeClip(model, metrics) };
+      const clip = computeClip(model, metrics);
+      // clip is in device-independent px (css * zoom): an element taller than the limit is shot up to it
+      clip.height = Math.min(clip.height, maxH * zoomOf(metrics));
+      return { metrics, clip };
     };
     // Content can still change between measuring and shooting (a log that keeps growing, text
     // that re-wraps once the viewport changes): shoot, measure again, and shoot again if the

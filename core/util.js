@@ -127,6 +127,16 @@ export function imageSize(bytes) {
   return null;
 }
 
+/**
+ * The tallest a shot can be, in CSS px: `maxSide` device px at this screen scale. A page or element
+ * taller than that is shot up to this height (its top part) instead of failing.
+ */
+export function maxCssHeight(dpr, maxSide) {
+  let h = Math.floor(maxSide / dpr);
+  while (h > 1 && Math.round(h * dpr) > maxSide) h--;
+  return Math.max(1, h);
+}
+
 export function assertWithinLimit(widthPx, heightPx, maxSide) {
   if (widthPx > maxSide || heightPx > maxSide) {
     throw new CaptureError(

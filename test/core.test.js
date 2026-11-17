@@ -106,9 +106,10 @@ test('captureFull: capture failure still clears override and restores', async ()
   assert.ok(cdp.calls.some((c) => c.params.functionDeclaration?.includes('restoreState')));
 });
 
-test('captureFull: too tall -> TOO_LARGE before any emulation', async () => {
+test('captureFull: too wide -> TOO_LARGE before any emulation', async () => {
   const cdp = makeFakeCdp({
-    'Runtime.callFunctionOn': pageFns({ scanScrollers: null, measureHidden: { hidden: 20000, max: 20000, remaining: 1, total: 1 } }),
+    'Runtime.callFunctionOn': pageFns({ scanScrollers: null, measureHidden: { hidden: 500, max: 500, remaining: 1, total: 1 } }),
+    'Page.getLayoutMetrics': () => ({ cssLayoutViewport: { clientWidth: 20000, clientHeight: 600 }, cssContentSize: { width: 20000, height: 600 } }),
   });
   await rejectsWith(captureFull(cdp, fast), ErrorCode.TOO_LARGE);
   assert.ok(!cdp.names().includes('Emulation.setDeviceMetricsOverride'));
@@ -328,10 +329,14 @@ test('document scroll: layouts that follow the viewport (100vh) stop after bound
   assert.ok(cdp.names().includes('Emulation.clearDeviceMetricsOverride'));
 });
 
-test('document scroll: too tall -> TOO_LARGE before any emulation', async () => {
+test('document scroll: taller than the limit -> shot up to the limit, not an error', async () => {
   const cdp = docCdp((view) => Math.max(view, 30000));
-  await rejectsWith(captureFull(cdp, fast), ErrorCode.TOO_LARGE);
-  assert.ok(!cdp.names().includes('Emulation.setDeviceMetricsOverride'));
+  const r = await captureFull(cdp, fast);
+  assert.equal(Math.max(...heights(cdp)), DEFAULTS.maxSidePixels); // the viewport never goes beyond the limit
+  const shot = cdp.calls.find((c) => c.method === 'Page.captureScreenshot');
+  assert.equal(shot.params.clip.height, DEFAULTS.maxSidePixels);
+  assert.ok(cdp.names().includes('Emulation.clearDeviceMetricsOverride'));
+  assert.ok(r.bytes.length > 0);
 });
 
 test('document scroll: a page that already fits is a plain viewport shot', async () => {
@@ -393,14 +398,15 @@ test('captureNode: element that already fits the viewport does not touch the vie
   assert.ok(!cdp.names().includes('Emulation.setDeviceMetricsOverride'));
 });
 
-test('captureNode: element taller than the limit -> TOO_LARGE', async () => {
+test('captureNode: element taller than the limit -> shot up to the limit, not an error', async () => {
   const cdp = makeFakeCdp({
     'DOM.resolveNode': { object: { objectId: 'el-obj' } },
     'DOM.getBoxModel': { model: { border: [0, 0, 100, 0, 100, 30000, 0, 30000] } },
     'Runtime.callFunctionOn': pageFns({ scanScrollers: null, measureHidden: { hidden: 0, max: 0, remaining: 0, total: 0, items: [] } }),
   });
-  await rejectsWith(captureNode(cdp, 7, fast), ErrorCode.TOO_LARGE);
-  assert.ok(!cdp.names().includes('Emulation.setDeviceMetricsOverride'));
+  await captureNode(cdp, 7, fast);
+  const shot = cdp.calls.find((c) => c.method === 'Page.captureScreenshot');
+  assert.equal(shot.params.clip.height, DEFAULTS.maxSidePixels);
 });
 
 test('pickNode: turns the viewport-size label off before inspect mode starts', async () => {
